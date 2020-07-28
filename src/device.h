@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
+#include <tuple>
 
 #include "utils.h"
 #include "excalInfoStructs.h"
@@ -15,8 +16,10 @@ private:
   vk::Queue               presentQueue;
   vk::SampleCountFlagBits msaaSamples;
 
-  ExcalDebugInfo   excalDebugInfo;
+  ExcalDebugInfo    excalDebugInfo;
   ExcalSurfaceInfo* excalSurfaceInfo;
+
+  ExcalUtils* excalUtils;
 
   int  rateDeviceSuitability(vk::PhysicalDevice physicalDevice);
   bool checkDeviceExtensionSupport(vk::PhysicalDevice physicalDevice);
@@ -27,8 +30,6 @@ private:
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
   };
 
-  ExcalUtils* excalUtils;
-
 public:
   ExcalDevice(
     const ExcalDebugInfo& debugInfo,
@@ -36,14 +37,7 @@ public:
     ExcalUtils* excalUtils
   );
 
-  void createInstance();
-  void pickPhysicalDevice();
-  void createLogicalDevice();
-
-  vk::Instance            getInstance()       const { return instance;       }
-  vk::PhysicalDevice      getPhysicalDevice() const { return physicalDevice; }
-  vk::Device              getDevice()         const { return device;         }
-  vk::Queue               getGraphicsQueue()  const { return graphicsQueue;  }
-  vk::Queue               getPresentQueue()   const { return presentQueue;   }
-  vk::SampleCountFlagBits getMsaaSamples()    const { return msaaSamples;    }
+  vk::Instance createInstance();
+  std::tuple<vk::PhysicalDevice, vk::SampleCountFlagBits> pickPhysicalDevice();
+  std::tuple<vk::Device, vk::Queue, vk::Queue>            createLogicalDevice();
 };

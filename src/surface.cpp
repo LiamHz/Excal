@@ -17,7 +17,18 @@ ExcalSurfaceInfo ExcalSurface::getExcalSurfaceInfo()
   };
 }
 
-void ExcalSurface::createSurface(const vk::Instance& instance)
+GLFWwindow* ExcalSurface::initWindow()
+{
+  glfwInit();
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Don't create OpenGL context
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+  window = glfwCreateWindow(WIDTH, HEIGHT, "Excal", nullptr, nullptr);
+  glfwSetWindowUserPointer(window, this);
+  //glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+  return window;
+}
+
+vk::SurfaceKHR ExcalSurface::createSurface(const vk::Instance& instance)
 {
   auto vSurface = VkSurfaceKHR(surface);
 
@@ -27,16 +38,7 @@ void ExcalSurface::createSurface(const vk::Instance& instance)
   }
 
   surface = vk::SurfaceKHR(vSurface);
-}
-
-void ExcalSurface::initWindow()
-{
-  glfwInit();
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Don't create OpenGL context
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-  window = glfwCreateWindow(WIDTH, HEIGHT, "Excal", nullptr, nullptr);
-  glfwSetWindowUserPointer(window, this);
-  //glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+  return surface;
 }
 
 // TODO Figure out how to pass the type ExcalApplication in

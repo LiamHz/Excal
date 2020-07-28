@@ -21,9 +21,6 @@ public:
   ExcalSurface();
   ExcalSurfaceInfo getExcalSurfaceInfo();
 
-  void createSurface(const vk::Instance& instance);
-  void initWindow();
-
-  vk::SurfaceKHR getSurface() const { return surface; }
-  GLFWwindow*    getWindow()  const { return window;  }
+  GLFWwindow*    initWindow();
+  vk::SurfaceKHR createSurface(const vk::Instance& instance);
 };

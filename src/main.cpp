@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
+#include <tuple>
 #include <array>
 #include <unordered_map>
 
@@ -71,7 +72,7 @@ void DestroyDebugUtilsMessengerEXT(
 class ExcalApplication {
 public:
   void run() {
-    excalSurface.initWindow();
+    window = excalSurface.initWindow();
     initVulkan();
     mainLoop();
     cleanup();
@@ -131,13 +132,13 @@ private:
   size_t                         currentFrame = 0;
   bool                           framebufferResized = false;
   
-
   ExcalDebug   excalDebug;
   ExcalSurface excalSurface;
 
-  ExcalDebugInfo   debugInfo   = excalDebug.getExcalDebugInfo();
+  ExcalDebugInfo   debugInfo = excalDebug.getExcalDebugInfo();
   ExcalSurfaceInfo surfaceInfo;
 
+  // NOTE: &surfaceInfo will change after createSurface has been called
   ExcalUtils  excalUtils  = {debugInfo, &surfaceInfo};
   ExcalDevice excalDevice = {debugInfo, &surfaceInfo, &excalUtils};
 
@@ -154,25 +155,15 @@ private:
   vk::SampleCountFlagBits msaaSamples;
 
   void initVulkan() {
-    excalDevice.createInstance();
-    instance = excalDevice.getInstance();
+    instance = excalDevice.createInstance();
 
     setupDebugMessenger();
 
-    excalSurface.createSurface(instance);
+    surface     = excalSurface.createSurface(instance);
     surfaceInfo = excalSurface.getExcalSurfaceInfo();
 
-    excalDevice.pickPhysicalDevice();
-    excalDevice.createLogicalDevice();
-
-    window         = excalSurface.getWindow();
-    surface        = excalSurface.getSurface();
-
-    physicalDevice = excalDevice.getPhysicalDevice();
-    device         = excalDevice.getDevice();
-    graphicsQueue  = excalDevice.getGraphicsQueue();
-    presentQueue   = excalDevice.getPresentQueue();
-    msaaSamples    = excalDevice.getMsaaSamples();
+    std::tie(       physicalDevice, msaaSamples)  = excalDevice.pickPhysicalDevice();
+    std::tie(device, graphicsQueue, presentQueue) = excalDevice.createLogicalDevice();
 
     createSwapChain();
     createImageViews();

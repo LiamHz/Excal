@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.hpp>
 #include <set>
 #include <map>
+#include <tuple>
 #include <iostream>
 
 ExcalDevice::ExcalDevice(
@@ -18,7 +19,7 @@ ExcalDevice::ExcalDevice(
   excalSurfaceInfo = surfaceInfo;
 }
 
-void ExcalDevice::createInstance()
+vk::Instance ExcalDevice::createInstance()
 {
   if (excalDebugInfo.enableValidationLayers && !excalDebugInfo.validationLayerSupport) {
     throw std::runtime_error("validation layers requested, but not available!");
@@ -48,9 +49,10 @@ void ExcalDevice::createInstance()
   }
 
   instance = vk::createInstance(createInfo);
+  return instance;
 }
 
-void ExcalDevice::pickPhysicalDevice()
+std::tuple<vk::PhysicalDevice, vk::SampleCountFlagBits> ExcalDevice::pickPhysicalDevice()
 {
   auto physicalDevices = instance.enumeratePhysicalDevices();
 
@@ -73,9 +75,11 @@ void ExcalDevice::pickPhysicalDevice()
   } else {
     throw std::runtime_error("failed to find a suitable GPU!");
   }
+
+  return {physicalDevice, msaaSamples};
 }
 
-void ExcalDevice::createLogicalDevice()
+std::tuple<vk::Device, vk::Queue, vk::Queue> ExcalDevice::createLogicalDevice()
 {
   QueueFamilyIndices indices
     = excalUtils->findQueueFamilies(physicalDevice, excalSurfaceInfo->surface);
@@ -110,6 +114,8 @@ void ExcalDevice::createLogicalDevice()
 
   graphicsQueue = device.getQueue(indices.graphicsFamily.value(), 0);
   presentQueue  = device.getQueue(indices.presentFamily.value(), 0);
+
+  return {device, graphicsQueue, presentQueue};
 }
 
 int ExcalDevice::rateDeviceSuitability(vk::PhysicalDevice physicalDevice)
