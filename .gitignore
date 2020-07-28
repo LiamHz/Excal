@@ -1,0 +1,5 @@
+build/
+*.spv
+
+*.vim
+.DS_Store
