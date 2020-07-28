@@ -20,7 +20,17 @@ public:
   };
 
   struct SurfaceContext {
+    GLFWwindow* window;
     vk::SurfaceKHR surface;
+  };
+
+  struct DeviceContext {
+    vk::Instance            instance;
+    vk::PhysicalDevice      physicalDevice;
+    vk::Device              device;
+    vk::Queue               graphicsQueue;
+    vk::Queue               presentQueue;
+    vk::SampleCountFlagBits msaaSamples;
   };
 
 public:
@@ -28,5 +38,6 @@ public:
 
   DebugContext   debug;
   SurfaceContext surface;
+  DeviceContext  device;
 };
 }

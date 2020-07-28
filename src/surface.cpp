@@ -14,11 +14,12 @@ Surface::Surface()
 
 void Surface::updateContext(Excal::Context& context) {
   context.surface = {
+    window,
     surface
   };
 }
 
-GLFWwindow* Surface::initWindow()
+void Surface::initWindow()
 {
   glfwInit();
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Don't create OpenGL context
@@ -26,10 +27,9 @@ GLFWwindow* Surface::initWindow()
   window = glfwCreateWindow(WIDTH, HEIGHT, "Excal", nullptr, nullptr);
   glfwSetWindowUserPointer(window, this);
   //glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
-  return window;
 }
 
-vk::SurfaceKHR Surface::createSurface(const vk::Instance& instance)
+void Surface::createSurface(const vk::Instance& instance)
 {
   auto vSurface = VkSurfaceKHR(surface);
 
@@ -39,7 +39,6 @@ vk::SurfaceKHR Surface::createSurface(const vk::Instance& instance)
   }
 
   surface = vk::SurfaceKHR(vSurface);
-  return surface;
 }
 
 // TODO Figure out how to pass the type ExcalApplication in

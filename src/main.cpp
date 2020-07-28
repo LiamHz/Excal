@@ -72,7 +72,7 @@ void DestroyDebugUtilsMessengerEXT(
 class ExcalApplication {
 public:
   void run() {
-    window = excalSurface.initWindow();
+    excalSurface.initWindow();
     initVulkan();
     mainLoop();
     cleanup();
@@ -154,17 +154,36 @@ private:
   vk::SampleCountFlagBits msaaSamples;
 
   void initVulkan() {
-    excalDebug.updateContext(context);
-    instance = excalDevice.createInstance();
-
-    setupDebugMessenger();
-
-    surface = excalSurface.createSurface(instance);
+    // Update context, and create instance
     excalSurface.updateContext(context);
     excalDebug.updateContext(context);
 
-    std::tie(       physicalDevice, msaaSamples)  = excalDevice.pickPhysicalDevice();
-    std::tie(device, graphicsQueue, presentQueue) = excalDevice.createLogicalDevice();
+    window = context.surface.window;
+
+    excalDevice.createInstance();
+    excalDevice.updateContext(context);
+
+    instance = context.device.instance;
+
+    // Setup debug messenger
+    setupDebugMessenger();
+
+    // Create surface
+    excalSurface.createSurface(instance);
+    excalSurface.updateContext(context);
+
+    surface = context.surface.surface;
+
+    // Create physical device and logical device
+    excalDevice.pickPhysicalDevice();
+    excalDevice.createLogicalDevice();
+    excalDevice.updateContext(context);
+
+    physicalDevice = context.device.physicalDevice;
+    device         = context.device.device;
+    graphicsQueue  = context.device.graphicsQueue;
+    presentQueue   = context.device.presentQueue;
+    msaaSamples    = context.device.msaaSamples;
 
     createSwapChain();
     createImageViews();
@@ -222,7 +241,7 @@ private:
     device.destroyCommandPool(commandPool);
     device.destroy();
 
-    if (excalDebug.enableValidationLayers) {
+    if (context.debug.enableValidationLayers) {
       DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
 
@@ -1327,9 +1346,9 @@ private:
   }
 
   void setupDebugMessenger() {
-    if (!excalDebug.enableValidationLayers) return;
+    if (!context.debug.enableValidationLayers) return;
 
-    auto createInfo = excalDebug.getDebugMessengerCreateInfo();
+    auto createInfo = context.debug.debugMessengerCreateInfo;
 
     if (CreateDebugUtilsMessengerEXT(
           instance, &createInfo, nullptr, &debugMessenger

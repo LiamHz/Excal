@@ -23,7 +23,7 @@ public:
   Surface();
   void updateContext(Excal::Context& context);
 
-  GLFWwindow*    initWindow();
-  vk::SurfaceKHR createSurface(const vk::Instance& instance);
+  void initWindow();
+  void createSurface(const vk::Instance& instance);
 };
 }

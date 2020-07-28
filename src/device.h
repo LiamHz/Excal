@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
-#include <tuple>
 
 #include "utils.h"
 #include "context.h"
@@ -12,8 +11,8 @@ class Device
 {
 private:
   vk::Instance            instance;
-  vk::Device              device;
   vk::PhysicalDevice      physicalDevice;
+  vk::Device              device;
   vk::Queue               graphicsQueue;
   vk::Queue               presentQueue;
   vk::SampleCountFlagBits msaaSamples;
@@ -32,9 +31,10 @@ private:
 
 public:
   Device(Excal::Context*, Excal::Utils*);
+  void updateContext(Excal::Context& context);
 
-  vk::Instance createInstance();
-  std::tuple<vk::PhysicalDevice, vk::SampleCountFlagBits> pickPhysicalDevice();
-  std::tuple<vk::Device, vk::Queue, vk::Queue>            createLogicalDevice();
+  void createInstance();
+  void pickPhysicalDevice();
+  void createLogicalDevice();
 };
 }

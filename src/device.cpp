@@ -16,7 +16,18 @@ Device::Device(
   Excal::Utils* excalUtils
 ) : excalUtils(excalUtils), context(context) {}
 
-vk::Instance Device::createInstance()
+void Device::updateContext(Excal::Context& context) {
+  context.device = {
+    instance,
+    physicalDevice,
+    device,
+    graphicsQueue,
+    presentQueue,
+    msaaSamples
+  };
+}
+
+void Device::createInstance()
 {
   if (context->debug.enableValidationLayers && !context->debug.validationLayerSupport) {
     throw std::runtime_error("validation layers requested, but not available!");
@@ -46,10 +57,9 @@ vk::Instance Device::createInstance()
   }
 
   instance = vk::createInstance(createInfo);
-  return instance;
 }
 
-std::tuple<vk::PhysicalDevice, vk::SampleCountFlagBits> Device::pickPhysicalDevice()
+void Device::pickPhysicalDevice()
 {
   auto physicalDevices = instance.enumeratePhysicalDevices();
 
@@ -72,11 +82,9 @@ std::tuple<vk::PhysicalDevice, vk::SampleCountFlagBits> Device::pickPhysicalDevi
   } else {
     throw std::runtime_error("failed to find a suitable GPU!");
   }
-
-  return {physicalDevice, msaaSamples};
 }
 
-std::tuple<vk::Device, vk::Queue, vk::Queue> Device::createLogicalDevice()
+void Device::createLogicalDevice()
 {
   QueueFamilyIndices indices
     = excalUtils->findQueueFamilies(physicalDevice, context->surface.surface);
@@ -111,8 +119,6 @@ std::tuple<vk::Device, vk::Queue, vk::Queue> Device::createLogicalDevice()
 
   graphicsQueue = device.getQueue(indices.graphicsFamily.value(), 0);
   presentQueue  = device.getQueue(indices.presentFamily.value(), 0);
-
-  return {device, graphicsQueue, presentQueue};
 }
 
 int Device::rateDeviceSuitability(vk::PhysicalDevice physicalDevice)
