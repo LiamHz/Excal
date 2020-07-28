@@ -6,16 +6,17 @@
 #include <vector>
 
 #include "structs.h"
-#include "excalInfoStructs.h"
+#include "context.h"
 
-class ExcalUtils
+namespace Excal
+{
+class Utils
 {
 private:
-  ExcalDebugInfo excalDebugInfo;
-  ExcalSurfaceInfo* excalSurfaceInfo;
+  Excal::Context* context;
 
 public:
-  ExcalUtils(const ExcalDebugInfo& debugInfo, ExcalSurfaceInfo* surfaceInfo);
+  Utils(Excal::Context*);
 
   QueueFamilyIndices findQueueFamilies(
     vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface
@@ -25,3 +26,4 @@ public:
 
   SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice physicalDevice);
 };
+}

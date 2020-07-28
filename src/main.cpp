@@ -28,12 +28,12 @@
 #include <array>
 #include <unordered_map>
 
-#include "excalInfoStructs.h"
 #include "structs.h"
 #include "utils.h"
 #include "device.h"
 #include "surface.h"
 #include "debug.h"
+#include "context.h"
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -132,21 +132,20 @@ private:
   size_t                         currentFrame = 0;
   bool                           framebufferResized = false;
   
-  ExcalDebug   excalDebug;
-  ExcalSurface excalSurface;
+  // context is always passed as a reference,
+  // and can change during program execution
+  Excal::Context context;
 
-  ExcalDebugInfo   debugInfo = excalDebug.getExcalDebugInfo();
-  ExcalSurfaceInfo surfaceInfo;
+  Excal::Debug   excalDebug;
+  Excal::Surface excalSurface;
+  Excal::Utils   excalUtils  = {&context};
+  Excal::Device  excalDevice = {&context, &excalUtils};
 
-  // NOTE: &surfaceInfo will change after createSurface has been called
-  ExcalUtils  excalUtils  = {debugInfo, &surfaceInfo};
-  ExcalDevice excalDevice = {debugInfo, &surfaceInfo, &excalUtils};
-
-  // Set by ExcalSurface
+  // Set by Excal::Surface
   GLFWwindow*    window;
   vk::SurfaceKHR surface;
 
-  // Set by ExcalDevice
+  // Set by Excal::Device
   vk::Instance            instance;
   vk::PhysicalDevice      physicalDevice;
   vk::Device              device;
@@ -155,12 +154,14 @@ private:
   vk::SampleCountFlagBits msaaSamples;
 
   void initVulkan() {
+    context.setDebugContext(excalDebug.getContext());
     instance = excalDevice.createInstance();
 
     setupDebugMessenger();
 
-    surface     = excalSurface.createSurface(instance);
-    surfaceInfo = excalSurface.getExcalSurfaceInfo();
+    surface = excalSurface.createSurface(instance);
+    context.setSurfaceContext(excalSurface.getContext());
+    context.setDebugContext(excalDebug.getContext());
 
     std::tie(       physicalDevice, msaaSamples)  = excalDevice.pickPhysicalDevice();
     std::tie(device, graphicsQueue, presentQueue) = excalDevice.createLogicalDevice();

@@ -4,9 +4,11 @@
 #include <tuple>
 
 #include "utils.h"
-#include "excalInfoStructs.h"
+#include "context.h"
 
-class ExcalDevice
+namespace Excal
+{
+class Device
 {
 private:
   vk::Instance            instance;
@@ -16,10 +18,8 @@ private:
   vk::Queue               presentQueue;
   vk::SampleCountFlagBits msaaSamples;
 
-  ExcalDebugInfo    excalDebugInfo;
-  ExcalSurfaceInfo* excalSurfaceInfo;
-
-  ExcalUtils* excalUtils;
+  Excal::Context* context;
+  Excal::Utils*   excalUtils;
 
   int  rateDeviceSuitability(vk::PhysicalDevice physicalDevice);
   bool checkDeviceExtensionSupport(vk::PhysicalDevice physicalDevice);
@@ -31,13 +31,10 @@ private:
   };
 
 public:
-  ExcalDevice(
-    const ExcalDebugInfo& debugInfo,
-    ExcalSurfaceInfo* surfaceInfo,
-    ExcalUtils* excalUtils
-  );
+  Device(Excal::Context*, Excal::Utils*);
 
   vk::Instance createInstance();
   std::tuple<vk::PhysicalDevice, vk::SampleCountFlagBits> pickPhysicalDevice();
   std::tuple<vk::Device, vk::Queue, vk::Queue>            createLogicalDevice();
 };
+}

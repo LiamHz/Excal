@@ -5,13 +5,15 @@
 #include <vulkan/vulkan.hpp>
 #include <vector>
 #include <iostream>
-#include "excalInfoStructs.h"
+#include "context.h"
 
-ExcalDebug::ExcalDebug() {}
-
-ExcalDebugInfo ExcalDebug::getExcalDebugInfo()
+namespace Excal
 {
-  return ExcalDebugInfo {
+Debug::Debug() {}
+
+Excal::Context::DebugContext Debug::getContext()
+{
+  return Excal::Context::DebugContext {
     enableValidationLayers,
     checkValidationLayerSupport(),
     validationLayers,
@@ -19,7 +21,7 @@ ExcalDebugInfo ExcalDebug::getExcalDebugInfo()
   };
 }
 
-bool ExcalDebug::checkValidationLayerSupport()
+bool Debug::checkValidationLayerSupport()
 {
   auto availableLayers = vk::enumerateInstanceLayerProperties();
 
@@ -42,7 +44,7 @@ bool ExcalDebug::checkValidationLayerSupport()
   return true;
 }
 
-VKAPI_ATTR VkBool32 VKAPI_CALL ExcalDebug::debugCallback(
+VKAPI_ATTR VkBool32 VKAPI_CALL Debug::debugCallback(
   VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
   VkDebugUtilsMessageTypeFlagsEXT messageType,
   const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
@@ -53,7 +55,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ExcalDebug::debugCallback(
   return VK_FALSE;
 }
 
-VkDebugUtilsMessengerCreateInfoEXT ExcalDebug::getDebugMessengerCreateInfo()
+VkDebugUtilsMessengerCreateInfoEXT Debug::getDebugMessengerCreateInfo()
 {
   // Specify types of severities for callback to be called for
   vk::DebugUtilsMessageSeverityFlagsEXT severityFlags(
@@ -75,4 +77,5 @@ VkDebugUtilsMessengerCreateInfoEXT ExcalDebug::getDebugMessengerCreateInfo()
       {}, severityFlags, messageTypeFlags, &debugCallback
     )
   );
+}
 }

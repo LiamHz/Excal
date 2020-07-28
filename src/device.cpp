@@ -1,7 +1,7 @@
 #include "device.h"
 
 #include "utils.h"
-#include "excalInfoStructs.h"
+#include "context.h"
 
 #include <vulkan/vulkan.hpp>
 #include <set>
@@ -9,19 +9,16 @@
 #include <tuple>
 #include <iostream>
 
-ExcalDevice::ExcalDevice(
-  const ExcalDebugInfo& debugInfo,
-  ExcalSurfaceInfo* surfaceInfo,
-  ExcalUtils* excalUtils
-) : excalUtils(excalUtils)
+namespace Excal
 {
-  excalDebugInfo = debugInfo;
-  excalSurfaceInfo = surfaceInfo;
-}
+Device::Device(
+  Excal::Context* context,
+  Excal::Utils* excalUtils
+) : excalUtils(excalUtils), context(context) {}
 
-vk::Instance ExcalDevice::createInstance()
+vk::Instance Device::createInstance()
 {
-  if (excalDebugInfo.enableValidationLayers && !excalDebugInfo.validationLayerSupport) {
+  if (context->debug.enableValidationLayers && !context->debug.validationLayerSupport) {
     throw std::runtime_error("validation layers requested, but not available!");
   }
 
@@ -34,13 +31,21 @@ vk::Instance ExcalDevice::createInstance()
   createInfo.enabledExtensionCount   = extensions.size();
   createInfo.ppEnabledExtensionNames = extensions.data();
 
-  if (excalDebugInfo.enableValidationLayers)
+  if (context->debug.enableValidationLayers)
   {
-    createInfo.enabledLayerCount   = excalDebugInfo.validationLayers.size();
-    createInfo.ppEnabledLayerNames = excalDebugInfo.validationLayers.data();
+    createInfo.enabledLayerCount   = context->debug.validationLayers.size();
+    createInfo.ppEnabledLayerNames = context->debug.validationLayers.data();
 
-    auto debugCreateInfo = excalDebugInfo.debugMessengerCreateInfo;
-    createInfo.pNext     = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
+    // NOTE: Setting createInfo.pNext causes a segfault.
+    // This prevents issues in the vk::createInstance and vk:destroyInstance
+    // from being debugged, which currently isn't a priority
+    //auto debugCreateInfo = context->debug.debugMessengerCreateInfo;
+    //createInfo.pNext     = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
+    
+    // NOTE: Below is a hacky fix to prevent segfault when setting createInfo.pNext
+    //for (int i=0; i < 16; ++i) { std::cout << i << std::endl; }
+    
+    createInfo.pNext = nullptr;
   }
   else
   {
@@ -52,7 +57,7 @@ vk::Instance ExcalDevice::createInstance()
   return instance;
 }
 
-std::tuple<vk::PhysicalDevice, vk::SampleCountFlagBits> ExcalDevice::pickPhysicalDevice()
+std::tuple<vk::PhysicalDevice, vk::SampleCountFlagBits> Device::pickPhysicalDevice()
 {
   auto physicalDevices = instance.enumeratePhysicalDevices();
 
@@ -79,10 +84,10 @@ std::tuple<vk::PhysicalDevice, vk::SampleCountFlagBits> ExcalDevice::pickPhysica
   return {physicalDevice, msaaSamples};
 }
 
-std::tuple<vk::Device, vk::Queue, vk::Queue> ExcalDevice::createLogicalDevice()
+std::tuple<vk::Device, vk::Queue, vk::Queue> Device::createLogicalDevice()
 {
   QueueFamilyIndices indices
-    = excalUtils->findQueueFamilies(physicalDevice, excalSurfaceInfo->surface);
+    = excalUtils->findQueueFamilies(physicalDevice, context->surface.surface);
 
   std::set<uint32_t> uniqueQueueFamilies = {
     indices.graphicsFamily.value(),
@@ -118,7 +123,7 @@ std::tuple<vk::Device, vk::Queue, vk::Queue> ExcalDevice::createLogicalDevice()
   return {device, graphicsQueue, presentQueue};
 }
 
-int ExcalDevice::rateDeviceSuitability(vk::PhysicalDevice physicalDevice)
+int Device::rateDeviceSuitability(vk::PhysicalDevice physicalDevice)
 {
   vk::PhysicalDeviceFeatures deviceFeatures = physicalDevice.getFeatures();
   vk::PhysicalDeviceProperties deviceProperties = physicalDevice.getProperties();
@@ -148,7 +153,7 @@ int ExcalDevice::rateDeviceSuitability(vk::PhysicalDevice physicalDevice)
   }
 
   QueueFamilyIndices indices
-    = excalUtils->findQueueFamilies(physicalDevice, excalSurfaceInfo->surface);
+    = excalUtils->findQueueFamilies(physicalDevice, context->surface.surface);
   if (!indices.isComplete()) {
     return 0;
   }
@@ -156,7 +161,7 @@ int ExcalDevice::rateDeviceSuitability(vk::PhysicalDevice physicalDevice)
   return score;
 }
 
-bool ExcalDevice::checkDeviceExtensionSupport(vk::PhysicalDevice physicalDevice) {
+bool Device::checkDeviceExtensionSupport(vk::PhysicalDevice physicalDevice) {
   auto availableExtensions = physicalDevice.enumerateDeviceExtensionProperties();
 
   std::set<std::string> requiredExtensions(
@@ -170,7 +175,7 @@ bool ExcalDevice::checkDeviceExtensionSupport(vk::PhysicalDevice physicalDevice)
   return requiredExtensions.empty();
 }
 
-vk::SampleCountFlagBits ExcalDevice::getMaxUsableSampleCount() {
+vk::SampleCountFlagBits Device::getMaxUsableSampleCount() {
   auto deviceProperties = physicalDevice.getProperties();
 
   vk::SampleCountFlags counts = deviceProperties.limits.framebufferColorSampleCounts
@@ -184,4 +189,4 @@ vk::SampleCountFlagBits ExcalDevice::getMaxUsableSampleCount() {
 
   return vk::SampleCountFlagBits::e1;
 }
-
+}

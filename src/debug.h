@@ -5,13 +5,15 @@
 #include <vector>
 #include <iostream>
 
-#include "excalInfoStructs.h"
+#include "context.h"
 
-class ExcalDebug
+namespace Excal
+{
+class Debug
 {
 public:
-  ExcalDebug();
-  ExcalDebugInfo getExcalDebugInfo();
+  Debug();
+  Excal::Context::DebugContext getContext();
 
   bool checkValidationLayerSupport();
 
@@ -35,3 +37,4 @@ public:
     "VK_LAYER_KHRONOS_validation"
   };
 };
+}

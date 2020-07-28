@@ -7,14 +7,13 @@
 #include <iostream>
 
 #include "structs.h"
-#include "excalInfoStructs.h"
+#include "context.h"
 
-ExcalUtils::ExcalUtils(
-  const ExcalDebugInfo& debugInfo,
-  ExcalSurfaceInfo* surfaceInfo
-) : excalDebugInfo(debugInfo), excalSurfaceInfo(surfaceInfo) {}
+namespace Excal
+{
+Utils::Utils(Excal::Context* context) : context(context) {}
 
-QueueFamilyIndices ExcalUtils::findQueueFamilies(
+QueueFamilyIndices Utils::findQueueFamilies(
   vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface
 ) {
   QueueFamilyIndices indices;
@@ -50,7 +49,7 @@ QueueFamilyIndices ExcalUtils::findQueueFamilies(
   return indices;
 }
 
-std::vector<const char*> ExcalUtils::getRequiredExtensions()
+std::vector<const char*> Utils::getRequiredExtensions()
 {
   uint32_t glfwExtensionCount = 0;
   const char** glfwExtensions;
@@ -65,7 +64,7 @@ std::vector<const char*> ExcalUtils::getRequiredExtensions()
   extensions.push_back("VK_KHR_surface");
   extensions.push_back("VK_EXT_metal_surface");
 
-  if (excalDebugInfo.enableValidationLayers)
+  if (context->debug.enableValidationLayers)
   {
     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
   }
@@ -73,17 +72,18 @@ std::vector<const char*> ExcalUtils::getRequiredExtensions()
   return extensions;
 }
 
-SwapChainSupportDetails ExcalUtils::querySwapChainSupport(vk::PhysicalDevice physicalDevice)
+SwapChainSupportDetails Utils::querySwapChainSupport(vk::PhysicalDevice physicalDevice)
 {
   SwapChainSupportDetails details;
   details.surfaceCapabilities
-    = physicalDevice.getSurfaceCapabilitiesKHR(excalSurfaceInfo->surface);
+    = physicalDevice.getSurfaceCapabilitiesKHR(context->surface.surface);
 
   details.surfaceFormats
-    = physicalDevice.getSurfaceFormatsKHR(excalSurfaceInfo->surface);
+    = physicalDevice.getSurfaceFormatsKHR(context->surface.surface);
 
   details.presentModes
-    = physicalDevice.getSurfacePresentModesKHR(excalSurfaceInfo->surface);
+    = physicalDevice.getSurfacePresentModesKHR(context->surface.surface);
 
   return details;
+}
 }

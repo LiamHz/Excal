@@ -4,9 +4,11 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
 
-#include "excalInfoStructs.h"
+#include "context.h"
 
-class ExcalSurface
+namespace Excal
+{
+class Surface
 {
 private:
   GLFWwindow*    window;
@@ -18,9 +20,10 @@ private:
   const uint32_t HEIGHT = 900;
 
 public:
-  ExcalSurface();
-  ExcalSurfaceInfo getExcalSurfaceInfo();
+  Surface();
+  Excal::Context::SurfaceContext getContext();
 
   GLFWwindow*    initWindow();
   vk::SurfaceKHR createSurface(const vk::Instance& instance);
 };
+}

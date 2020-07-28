@@ -3,21 +3,23 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#include "excalInfoStructs.h"
+#include "context.h"
 
-ExcalSurface::ExcalSurface()
+namespace Excal
+{
+Surface::Surface()
 {
   return;
 }
 
-ExcalSurfaceInfo ExcalSurface::getExcalSurfaceInfo()
+Excal::Context::SurfaceContext Surface::getContext()
 {
-  return ExcalSurfaceInfo {
+  return Excal::Context::SurfaceContext {
     surface
   };
 }
 
-GLFWwindow* ExcalSurface::initWindow()
+GLFWwindow* Surface::initWindow()
 {
   glfwInit();
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Don't create OpenGL context
@@ -28,7 +30,7 @@ GLFWwindow* ExcalSurface::initWindow()
   return window;
 }
 
-vk::SurfaceKHR ExcalSurface::createSurface(const vk::Instance& instance)
+vk::SurfaceKHR Surface::createSurface(const vk::Instance& instance)
 {
   auto vSurface = VkSurfaceKHR(surface);
 
@@ -44,9 +46,10 @@ vk::SurfaceKHR ExcalSurface::createSurface(const vk::Instance& instance)
 // TODO Figure out how to pass the type ExcalApplication in
 //      and re-enable framebufferResizeCallback
 /*
-void ExcalSurface::framebufferResizeCallback(GLFWwindow* window, int width, int height)
+void Surface::framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
   auto app = static_cast<ExcalApplication*>(glfwGetWindowUserPointer(window));
   app->framebufferResized = true;
 }
 */
+}
