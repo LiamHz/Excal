@@ -13,7 +13,7 @@ class Debug
 {
 public:
   Debug();
-  Excal::Context::DebugContext getContext();
+  void updateContext(Excal::Context& context);
 
   bool checkValidationLayerSupport();
 

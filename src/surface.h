@@ -21,7 +21,7 @@ private:
 
 public:
   Surface();
-  Excal::Context::SurfaceContext getContext();
+  void updateContext(Excal::Context& context);
 
   GLFWwindow*    initWindow();
   vk::SurfaceKHR createSurface(const vk::Instance& instance);

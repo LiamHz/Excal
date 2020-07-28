@@ -26,9 +26,6 @@ public:
 public:
   Context();
 
-  void setDebugContext(const DebugContext&);
-  void setSurfaceContext(const SurfaceContext&);
-
   DebugContext   debug;
   SurfaceContext surface;
 };

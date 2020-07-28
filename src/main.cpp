@@ -154,14 +154,14 @@ private:
   vk::SampleCountFlagBits msaaSamples;
 
   void initVulkan() {
-    context.setDebugContext(excalDebug.getContext());
+    excalDebug.updateContext(context);
     instance = excalDevice.createInstance();
 
     setupDebugMessenger();
 
     surface = excalSurface.createSurface(instance);
-    context.setSurfaceContext(excalSurface.getContext());
-    context.setDebugContext(excalDebug.getContext());
+    excalSurface.updateContext(context);
+    excalDebug.updateContext(context);
 
     std::tie(       physicalDevice, msaaSamples)  = excalDevice.pickPhysicalDevice();
     std::tie(device, graphicsQueue, presentQueue) = excalDevice.createLogicalDevice();

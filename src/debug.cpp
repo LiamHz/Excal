@@ -11,9 +11,8 @@ namespace Excal
 {
 Debug::Debug() {}
 
-Excal::Context::DebugContext Debug::getContext()
-{
-  return Excal::Context::DebugContext {
+void Debug::updateContext(Excal::Context& context) {
+  context.debug = {
     enableValidationLayers,
     checkValidationLayerSupport(),
     validationLayers,

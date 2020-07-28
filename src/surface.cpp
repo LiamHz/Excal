@@ -12,9 +12,8 @@ Surface::Surface()
   return;
 }
 
-Excal::Context::SurfaceContext Surface::getContext()
-{
-  return Excal::Context::SurfaceContext {
+void Surface::updateContext(Excal::Context& context) {
+  context.surface = {
     surface
   };
 }

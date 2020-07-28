@@ -36,16 +36,8 @@ vk::Instance Device::createInstance()
     createInfo.enabledLayerCount   = context->debug.validationLayers.size();
     createInfo.ppEnabledLayerNames = context->debug.validationLayers.data();
 
-    // NOTE: Setting createInfo.pNext causes a segfault.
-    // This prevents issues in the vk::createInstance and vk:destroyInstance
-    // from being debugged, which currently isn't a priority
-    //auto debugCreateInfo = context->debug.debugMessengerCreateInfo;
-    //createInfo.pNext     = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
-    
-    // NOTE: Below is a hacky fix to prevent segfault when setting createInfo.pNext
-    //for (int i=0; i < 16; ++i) { std::cout << i << std::endl; }
-    
-    createInfo.pNext = nullptr;
+    auto debugCreateInfo = context->debug.debugMessengerCreateInfo;
+    createInfo.pNext     = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
   }
   else
   {
