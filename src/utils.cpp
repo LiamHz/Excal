@@ -7,14 +7,14 @@
 #include <iostream>
 
 #include "structs.h"
-#include "context.h"
 
 namespace Excal
 {
-Utils::Utils(Excal::Context* context) : context(context) {}
+Utils::Utils() {}
 
 QueueFamilyIndices Utils::findQueueFamilies(
-  vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface
+  const vk::PhysicalDevice& physicalDevice,
+  const vk::SurfaceKHR&     surface
 ) {
   QueueFamilyIndices indices;
   auto queueFamilies = physicalDevice.getQueueFamilyProperties();
@@ -49,8 +49,9 @@ QueueFamilyIndices Utils::findQueueFamilies(
   return indices;
 }
 
-std::vector<const char*> Utils::getRequiredExtensions()
-{
+std::vector<const char*> Utils::getRequiredExtensions(
+  const bool validationLayersEnabled
+) {
   uint32_t glfwExtensionCount = 0;
   const char** glfwExtensions;
   glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -59,12 +60,7 @@ std::vector<const char*> Utils::getRequiredExtensions()
     glfwExtensions, glfwExtensions + glfwExtensionCount
   );
 
-  // TODO glfwGetRequiredInstanceExtensions isn't returning any values
-  //      The following two lines are a macOS specific workaround
-  extensions.push_back("VK_KHR_surface");
-  extensions.push_back("VK_EXT_metal_surface");
-
-  if (context->debug.enableValidationLayers)
+  if (validationLayersEnabled)
   {
     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
   }
@@ -72,25 +68,25 @@ std::vector<const char*> Utils::getRequiredExtensions()
   return extensions;
 }
 
-SwapChainSupportDetails Utils::querySwapChainSupport(vk::PhysicalDevice physicalDevice)
-{
+SwapChainSupportDetails Utils::querySwapChainSupport(
+  const vk::PhysicalDevice& physicalDevice,
+  const vk::SurfaceKHR&     surface
+) {
   SwapChainSupportDetails details;
-  details.surfaceCapabilities
-    = physicalDevice.getSurfaceCapabilitiesKHR(context->surface.surface);
-
-  details.surfaceFormats
-    = physicalDevice.getSurfaceFormatsKHR(context->surface.surface);
-
-  details.presentModes
-    = physicalDevice.getSurfacePresentModesKHR(context->surface.surface);
+  details.presentModes        = physicalDevice.getSurfacePresentModesKHR(surface);
+  details.surfaceFormats      = physicalDevice.getSurfaceFormatsKHR(surface);
+  details.surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface);
 
   return details;
 }
 
 vk::ImageView Utils::createImageView(
-  vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags
+  const vk::Device&           device,
+  const vk::Image&            image,
+  const vk::Format&           format,
+  const vk::ImageAspectFlags& aspectFlags
 ) {
-  auto imageView = context->device.device.createImageView(
+  auto imageView = device.createImageView(
     vk::ImageViewCreateInfo(
       {}, image, vk::ImageViewType::e2D, format,
       vk::ComponentMapping(vk::ComponentSwizzle::eIdentity),

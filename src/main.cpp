@@ -24,7 +24,6 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
-#include <tuple>
 #include <array>
 #include <unordered_map>
 
@@ -34,7 +33,6 @@
 #include "surface.h"
 #include "debug.h"
 #include "swapchain.h"
-#include "context.h"
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -73,7 +71,7 @@ void DestroyDebugUtilsMessengerEXT(
 class ExcalApplication {
 public:
   void run() {
-    excalSurface.initWindow();
+    window = excalSurface.initWindow(windowWidth, windowHeight);
     initVulkan();
     mainLoop();
     cleanup();
@@ -126,21 +124,22 @@ private:
 
   size_t                         currentFrame = 0;
   bool                           framebufferResized = false;
-  
-  // context is always passed as a reference,
-  // and can change during program execution
-  Excal::Context context;
+
+  const uint32_t                 windowWidth  = 1440;
+  const uint32_t                 windowHeight = 900;
 
   Excal::Debug     excalDebug;
   Excal::Surface   excalSurface;
-  Excal::Utils     excalUtils     = {&context};
-  Excal::Device    excalDevice    = {&context, &excalUtils};
-  Excal::Swapchain excalSwapchain = {&context, &excalUtils};
+  Excal::Utils     excalUtils;
+  Excal::Device    excalDevice    = {&excalUtils};
+  Excal::Swapchain excalSwapchain = {&excalUtils};
 
   // Set by Excal::Surface
   GLFWwindow*    window;
   vk::SurfaceKHR surface;
 
+  // TODO Remove these as class members
+  // (Requires changing dependent functions in main.cpp)
   // Set by Excal::Device
   vk::Instance            instance;
   vk::PhysicalDevice      physicalDevice;
@@ -156,48 +155,49 @@ private:
   std::vector<vk::Image>         swapchainImages;
   std::vector<vk::ImageView>     swapchainImageViews;
 
+  //#define NDEBUG
+  #ifdef NDEBUG
+    const bool validationLayersEnabled = false;
+  #else
+    const bool validationLayersEnabled = true;
+  #endif
+
   void initVulkan() {
-    // Update context, and create instance
-    excalSurface.updateContext(context);
-    excalDebug.updateContext(context);
+    const bool validationLayersSupported = excalDebug.checkValidationLayerSupport(); 
+    const auto validationLayers          = excalDebug.getValidationLayers();
+    const auto debugMessengerCreateInfo  = excalDebug.getDebugMessengerCreateInfo();
 
-    window = context.surface.window;
+    instance = excalDevice.createInstance(
+      validationLayersEnabled,
+      validationLayersSupported,
+      validationLayers,
+      debugMessengerCreateInfo
+    );
 
-    excalDevice.createInstance();
-    excalDevice.updateContext(context);
+    setupDebugMessenger(instance, validationLayersEnabled, debugMessengerCreateInfo);
 
-    instance = context.device.instance;
+    surface = excalSurface.createSurface(instance, window);
 
-    // Setup debug messenger
-    setupDebugMessenger();
+    physicalDevice = excalDevice.pickPhysicalDevice(instance, surface);
+    device         = excalDevice.createLogicalDevice(physicalDevice, surface);
 
-    // Create surface
-    excalSurface.createSurface(instance);
-    excalSurface.updateContext(context);
-
-    surface = context.surface.surface;
-
-    // Create physical device and logical device
-    excalDevice.pickPhysicalDevice();
-    excalDevice.createLogicalDevice();
-    excalDevice.updateContext(context);
-
-    physicalDevice = context.device.physicalDevice;
-    device         = context.device.device;
-    graphicsQueue  = context.device.graphicsQueue;
-    presentQueue   = context.device.presentQueue;
-    msaaSamples    = context.device.msaaSamples;
+    graphicsQueue = excalDevice.getGraphicsQueue(physicalDevice, device, surface);
+    presentQueue  = excalDevice.getPresentQueue(physicalDevice, device, surface);
+    msaaSamples   = excalDevice.getMaxUsableSampleCount(physicalDevice);
 
     // Create swapchain and image views
-    excalSwapchain.createSwapChain();
-    excalSwapchain.createImageViews();
-    excalSwapchain.updateContext(context);
+    auto swapchainState = excalSwapchain.createSwapchain(
+      physicalDevice, device, surface, window
+    );
 
-    swapchain            = context.swapchain.swapchain;
-    swapchainImageFormat = context.swapchain.swapchainImageFormat;
-    swapchainExtent      = context.swapchain.swapchainExtent;
-    swapchainImages      = context.swapchain.swapchainImages;
-    swapchainImageViews  = context.swapchain.swapchainImageViews;
+    swapchain            = swapchainState.swapchain;
+    swapchainImageFormat = swapchainState.swapchainImageFormat;
+    swapchainExtent      = swapchainState.swapchainExtent;
+
+    swapchainImages     = device.getSwapchainImagesKHR(swapchain);
+    swapchainImageViews = excalSwapchain.createImageViews(
+      device, swapchainImages, swapchainImageFormat
+    );
 
     createRenderPass();
     createDescriptorSetLayout();
@@ -253,7 +253,7 @@ private:
     device.destroyCommandPool(commandPool);
     device.destroy();
 
-    if (context.debug.enableValidationLayers) {
+    if (validationLayersEnabled) {
       DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
 
@@ -301,7 +301,7 @@ private:
   void recreateSwapChain() {
     // Handle widow minimization
     int width = 0, height = 0;
-    glfwGetFramebufferSize(context.surface.window, &width, &height);
+    glfwGetFramebufferSize(window, &width, &height);
 
     while (width == 0 || height == 0) {
       glfwGetFramebufferSize(window, &width, &height);
@@ -310,8 +310,9 @@ private:
 
     device.waitIdle();
 
-    excalSwapchain.createSwapChain();
-    excalSwapchain.createImageViews();
+    // TODO Member variables (swapchain, swapchainImages etc) should be reassigned here
+    excalSwapchain.createSwapchain(physicalDevice, device, surface, window);
+    excalSwapchain.createImageViews(device, swapchainImages, swapchainImageFormat);
     createRenderPass();
     createGraphicsPipeline();
     createColorResources();
@@ -614,7 +615,7 @@ private:
   }
 
   void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) {
-    buffer= device.createBuffer(
+    buffer = device.createBuffer(
       vk::BufferCreateInfo({}, size, usage, vk::SharingMode::eExclusive)
     );
 
@@ -819,7 +820,7 @@ private:
 
   void createTextureImageView() {
     textureImageView = excalUtils.createImageView(
-      textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor
+      device, textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor
     );
   }
 
@@ -1175,7 +1176,7 @@ private:
     );
 
     colorImageView = excalUtils.createImageView(
-      colorImage, colorFormat, vk::ImageAspectFlagBits::eColor
+      device, colorImage, colorFormat, vk::ImageAspectFlagBits::eColor
     );
   }
 
@@ -1193,7 +1194,7 @@ private:
     );
 
     depthImageView = excalUtils.createImageView(
-      depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth
+      device, depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth
     );
   }
 
@@ -1234,13 +1235,15 @@ private:
     );
   }
 
-  void setupDebugMessenger() {
-    if (!context.debug.enableValidationLayers) return;
-
-    auto createInfo = context.debug.debugMessengerCreateInfo;
+  void setupDebugMessenger(
+    const vk::Instance& instance,
+    const bool validationLayersEnabled,
+    const VkDebugUtilsMessengerCreateInfoEXT& debugMessengerCreateInfo
+  ) {
+    if (!validationLayersEnabled) return;
 
     if (CreateDebugUtilsMessengerEXT(
-          instance, &createInfo, nullptr, &debugMessenger
+          instance, &debugMessengerCreateInfo, nullptr, &debugMessenger
         ) != VK_SUCCESS)
     {
       throw std::runtime_error("failed to set up debug messenger!");

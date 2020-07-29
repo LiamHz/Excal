@@ -3,32 +3,26 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
+#include <tuple>
 
-#include "context.h"
 #include "utils.h"
 
 namespace Excal
 {
-Swapchain::Swapchain(Excal::Context* context, Excal::Utils* excalUtils)
-  : context(context), excalUtils(excalUtils) {}
+Swapchain::Swapchain(Excal::Utils* excalUtils) : excalUtils(excalUtils) {}
 
-void Swapchain::updateContext(Excal::Context& context) {
-  context.swapchain = {
-    swapchain,
-    swapchainImageFormat,
-    swapchainExtent,
-    swapchainImages,
-    swapchainImageViews
-  };
-}
-
-void Swapchain::createSwapChain() {
+Swapchain::SwapchainState Swapchain::createSwapchain(
+  const vk::PhysicalDevice& physicalDevice,
+  const vk::Device&         device,
+  const vk::SurfaceKHR&     surface,
+  GLFWwindow*               window
+) {
   SwapChainSupportDetails swapchainSupport
-    = excalUtils->querySwapChainSupport(context->device.physicalDevice);
+    = excalUtils->querySwapChainSupport(physicalDevice, surface);
 
   auto surfaceFormat = chooseSwapSurfaceFormat(swapchainSupport.surfaceFormats);
   auto presentMode   = chooseSwapPresentMode(swapchainSupport.presentModes);
-  auto extent        = chooseSwapExtent(swapchainSupport.surfaceCapabilities);
+  auto extent        = chooseSwapExtent(swapchainSupport.surfaceCapabilities, window);
 
   uint32_t imageCount = swapchainSupport.surfaceCapabilities.minImageCount + 1;
   if (  swapchainSupport.surfaceCapabilities.maxImageCount > 0
@@ -38,16 +32,13 @@ void Swapchain::createSwapChain() {
   }
 
   vk::SwapchainCreateInfoKHR createInfo(
-    {}, context->surface.surface, imageCount,
+    {}, surface, imageCount,
     surfaceFormat.format, surfaceFormat.colorSpace, extent,
     1, vk::ImageUsageFlagBits::eColorAttachment
   );
   createInfo.preTransform = swapchainSupport.surfaceCapabilities.currentTransform;
 
-  QueueFamilyIndices indices = excalUtils->findQueueFamilies(
-    context->device.physicalDevice,
-    context->surface.surface
-  );
+  QueueFamilyIndices indices = excalUtils->findQueueFamilies(physicalDevice, surface);
 
   uint32_t queueFamilyIndices[] = {
     indices.graphicsFamily.value(),
@@ -64,24 +55,32 @@ void Swapchain::createSwapChain() {
     createInfo.pQueueFamilyIndices   = nullptr;
   }
 
-  swapchain            = context->device.device.createSwapchainKHR(createInfo);
-  swapchainImages      = context->device.device.getSwapchainImagesKHR(swapchain);
-  swapchainImageFormat = surfaceFormat.format;
-  swapchainExtent      = extent;
+  return SwapchainState {
+    device.createSwapchainKHR(createInfo),
+    surfaceFormat.format,
+    extent
+  };
 }
 
-void Swapchain::createImageViews() {
+std::vector<vk::ImageView> Swapchain::createImageViews(
+  const vk::Device&             device,
+  const std::vector<vk::Image>& swapchainImages,
+  const vk::Format&             swapchainImageFormat
+) {
+  std::vector<vk::ImageView> swapchainImageViews;
   swapchainImageViews.resize(swapchainImages.size());
 
   for (size_t i=0; i < swapchainImages.size(); i++) {
     swapchainImageViews[i] = excalUtils->createImageView(
-      swapchainImages[i], swapchainImageFormat, vk::ImageAspectFlagBits::eColor
+      device, swapchainImages[i], swapchainImageFormat, vk::ImageAspectFlagBits::eColor
     );
   }
+
+  return swapchainImageViews;
 }
 
 vk::SurfaceFormatKHR Swapchain::chooseSwapSurfaceFormat(
-  std::vector<vk::SurfaceFormatKHR> availableFormats
+  const std::vector<vk::SurfaceFormatKHR>& availableFormats
 ) {
   // Prefer SRGB color format if available
   for (const auto& availableFormat : availableFormats) {
@@ -108,7 +107,10 @@ vk::PresentModeKHR Swapchain::chooseSwapPresentMode(
   return vk::PresentModeKHR::eFifo;
 }
 
-vk::Extent2D Swapchain::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities) {
+vk::Extent2D Swapchain::chooseSwapExtent(
+  const vk::SurfaceCapabilitiesKHR& capabilities,
+  GLFWwindow*                       window
+) {
   // Note: Swap extent is the resolution of the swap chain images.
   //       Almost always equal to the resolution of the window being drawn to.
 
@@ -118,7 +120,7 @@ vk::Extent2D Swapchain::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capab
     return capabilities.currentExtent;
   } else {
     int width, height;
-    glfwGetFramebufferSize(context->surface.window, &width, &height);
+    glfwGetFramebufferSize(window, &width, &height);
 
     vk::Extent2D actualExtent = {
       static_cast<uint32_t>(width),

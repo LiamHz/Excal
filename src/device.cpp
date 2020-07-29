@@ -1,52 +1,41 @@
 #include "device.h"
 
 #include "utils.h"
-#include "context.h"
 
 #include <vulkan/vulkan.hpp>
 #include <set>
 #include <map>
-#include <tuple>
 #include <iostream>
 
 namespace Excal
 {
-Device::Device(Excal::Context* context, Excal::Utils* excalUtils)
-  : context(context), excalUtils(excalUtils) {}
+Device::Device(Excal::Utils* excalUtils) : excalUtils(excalUtils) {}
 
-void Device::updateContext(Excal::Context& context) {
-  context.device = {
-    instance,
-    physicalDevice,
-    device,
-    graphicsQueue,
-    presentQueue,
-    msaaSamples
-  };
-}
-
-void Device::createInstance()
-{
-  if (context->debug.enableValidationLayers && !context->debug.validationLayerSupport) {
+vk::Instance Device::createInstance(
+  const bool                                validationLayersEnabled,
+  const bool                                validationLayersSupported,
+  const std::vector<const char*>&           validationLayers,
+  const VkDebugUtilsMessengerCreateInfoEXT& debugMessengerCreateInfo
+) {
+  if (validationLayersEnabled && !validationLayersSupported) {
     throw std::runtime_error("validation layers requested, but not available!");
   }
 
   vk::ApplicationInfo appInfo("Excal Test", 1, "Excal", 1, VK_API_VERSION_1_2);
 
   // Specify which global extensions to use
-  auto extensions = excalUtils->getRequiredExtensions();
+  auto extensions = excalUtils->getRequiredExtensions(validationLayersEnabled);
 
   vk::InstanceCreateInfo createInfo(vk::InstanceCreateFlags(), &appInfo);
   createInfo.enabledExtensionCount   = extensions.size();
   createInfo.ppEnabledExtensionNames = extensions.data();
 
-  if (context->debug.enableValidationLayers)
+  if (validationLayersEnabled)
   {
-    createInfo.enabledLayerCount   = context->debug.validationLayers.size();
-    createInfo.ppEnabledLayerNames = context->debug.validationLayers.data();
+    createInfo.enabledLayerCount   = validationLayers.size();
+    createInfo.ppEnabledLayerNames = validationLayers.data();
 
-    auto debugCreateInfo = context->debug.debugMessengerCreateInfo;
-    createInfo.pNext     = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
+    createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugMessengerCreateInfo;
   }
   else
   {
@@ -54,11 +43,13 @@ void Device::createInstance()
     createInfo.pNext = nullptr;
   }
 
-  instance = vk::createInstance(createInfo);
+  return vk::createInstance(createInfo);
 }
 
-void Device::pickPhysicalDevice()
-{
+vk::PhysicalDevice Device::pickPhysicalDevice(
+  const vk::Instance&   instance,
+  const vk::SurfaceKHR& surface
+) {
   auto physicalDevices = instance.enumeratePhysicalDevices();
 
   if (physicalDevices.size() == 0) {
@@ -69,23 +60,23 @@ void Device::pickPhysicalDevice()
   std::multimap<int, vk::PhysicalDevice> candidates;
 
   for (const auto& physicalDevice : physicalDevices) {
-    int score = rateDeviceSuitability(physicalDevice);
+    int score = rateDeviceSuitability(physicalDevice, surface);
     candidates.insert(std::make_pair(score, physicalDevice));
   }
 
   // Check if best candidate is suitable at all
-  if (candidates.rbegin()->first > 0) {
-    physicalDevice = candidates.rbegin()->second;
-    msaaSamples = getMaxUsableSampleCount();
-  } else {
+  if (candidates.rbegin()->first == 0) {
     throw std::runtime_error("failed to find a suitable GPU!");
   }
+
+  return candidates.rbegin()->second;
 }
 
-void Device::createLogicalDevice()
-{
-  QueueFamilyIndices indices
-    = excalUtils->findQueueFamilies(physicalDevice, context->surface.surface);
+vk::Device Device::createLogicalDevice(
+  const vk::PhysicalDevice& physicalDevice,
+  const vk::SurfaceKHR&     surface
+) {
+  QueueFamilyIndices indices = excalUtils->findQueueFamilies(physicalDevice, surface);
 
   std::set<uint32_t> uniqueQueueFamilies = {
     indices.graphicsFamily.value(),
@@ -106,7 +97,9 @@ void Device::createLogicalDevice()
   deviceFeatures.samplerAnisotropy = VK_TRUE;
   //deviceFeatures.sampleRateShading = VK_TRUE; // Enable sample shading (interior AA)
 
-  device = physicalDevice.createDevice(
+  auto deviceExtensions = getDeviceExtensions();
+
+  return physicalDevice.createDevice(
     vk::DeviceCreateInfo(
       {}, queueCreateInfos.size(), queueCreateInfos.data(),
       0, nullptr, // Enabled layers
@@ -114,13 +107,32 @@ void Device::createLogicalDevice()
       &deviceFeatures
     )
   );
-
-  graphicsQueue = device.getQueue(indices.graphicsFamily.value(), 0);
-  presentQueue  = device.getQueue(indices.presentFamily.value(), 0);
 }
 
-int Device::rateDeviceSuitability(vk::PhysicalDevice physicalDevice)
-{
+vk::Queue Device::getGraphicsQueue(
+  const vk::PhysicalDevice& physicalDevice,
+  const vk::Device&         device,
+  const vk::SurfaceKHR&     surface
+) {
+  QueueFamilyIndices indices = excalUtils->findQueueFamilies(physicalDevice, surface);
+
+  return device.getQueue(indices.graphicsFamily.value(), 0);
+}
+
+vk::Queue Device::getPresentQueue(
+  const vk::PhysicalDevice& physicalDevice,
+  const vk::Device&         device,
+  const vk::SurfaceKHR&     surface
+) {
+  QueueFamilyIndices indices = excalUtils->findQueueFamilies(physicalDevice, surface);
+
+  return device.getQueue(indices.presentFamily.value(), 0);
+}
+
+int Device::rateDeviceSuitability(
+  const vk::PhysicalDevice& physicalDevice,
+  const vk::SurfaceKHR&     surface
+) {
   vk::PhysicalDeviceFeatures deviceFeatures = physicalDevice.getFeatures();
   vk::PhysicalDeviceProperties deviceProperties = physicalDevice.getProperties();
 
@@ -141,15 +153,14 @@ int Device::rateDeviceSuitability(vk::PhysicalDevice physicalDevice)
   }
 
   SwapChainSupportDetails swapChainSupport
-    = excalUtils->querySwapChainSupport(physicalDevice);
+    = excalUtils->querySwapChainSupport(physicalDevice, surface);
   if (   swapChainSupport.surfaceFormats.empty()
       || swapChainSupport.presentModes.empty()
   ) {
     return 0;
   }
 
-  QueueFamilyIndices indices
-    = excalUtils->findQueueFamilies(physicalDevice, context->surface.surface);
+  QueueFamilyIndices indices = excalUtils->findQueueFamilies(physicalDevice, surface);
   if (!indices.isComplete()) {
     return 0;
   }
@@ -157,7 +168,14 @@ int Device::rateDeviceSuitability(vk::PhysicalDevice physicalDevice)
   return score;
 }
 
-bool Device::checkDeviceExtensionSupport(vk::PhysicalDevice physicalDevice) {
+std::vector<const char*> Device::getDeviceExtensions() {
+  return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+}
+
+bool Device::checkDeviceExtensionSupport(
+  const vk::PhysicalDevice& physicalDevice
+) {
+  auto deviceExtensions    = getDeviceExtensions();
   auto availableExtensions = physicalDevice.enumerateDeviceExtensionProperties();
 
   std::set<std::string> requiredExtensions(
@@ -171,11 +189,13 @@ bool Device::checkDeviceExtensionSupport(vk::PhysicalDevice physicalDevice) {
   return requiredExtensions.empty();
 }
 
-vk::SampleCountFlagBits Device::getMaxUsableSampleCount() {
+vk::SampleCountFlagBits Device::getMaxUsableSampleCount(
+  const vk::PhysicalDevice& physicalDevice
+) {
   auto deviceProperties = physicalDevice.getProperties();
 
   vk::SampleCountFlags counts = deviceProperties.limits.framebufferColorSampleCounts
-                               & deviceProperties.limits.framebufferDepthSampleCounts;
+                              & deviceProperties.limits.framebufferDepthSampleCounts;
   if (counts & vk::SampleCountFlagBits::e64) { return vk::SampleCountFlagBits::e64; }
   if (counts & vk::SampleCountFlagBits::e32) { return vk::SampleCountFlagBits::e32; }
   if (counts & vk::SampleCountFlagBits::e16) { return vk::SampleCountFlagBits::e16; }

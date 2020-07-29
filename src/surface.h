@@ -4,26 +4,16 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
 
-#include "context.h"
-
 namespace Excal
 {
 class Surface
 {
-private:
-  GLFWwindow*    window;
-  vk::SurfaceKHR surface;
-
-  static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
-
-  const uint32_t WIDTH  = 1440;
-  const uint32_t HEIGHT = 900;
-
 public:
   Surface();
-  void updateContext(Excal::Context& context);
 
-  void initWindow();
-  void createSurface(const vk::Instance& instance);
+  GLFWwindow*    initWindow(const uint32_t windowWidth, const uint32_t windowHeight);
+  vk::SurfaceKHR createSurface(const vk::Instance&, GLFWwindow*);
+
+  //static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 };
 }

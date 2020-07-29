@@ -4,7 +4,6 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
 
-#include "context.h"
 #include "utils.h"
 
 namespace Excal
@@ -12,32 +11,36 @@ namespace Excal
 class Swapchain
 {
 private:
-  Excal::Context*    context;
-  Excal::Utils*      excalUtils;
-
-  vk::SwapchainKHR               swapchain;
-  vk::Format                     swapchainImageFormat;
-  vk::Extent2D                   swapchainExtent;
-  std::vector<vk::Image>         swapchainImages;
-  std::vector<vk::ImageView>     swapchainImageViews;
-
-  vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
-    std::vector<vk::SurfaceFormatKHR> availableFormats
-  );
-
-  vk::PresentModeKHR chooseSwapPresentMode(
-    const std::vector<vk::PresentModeKHR>& availablePresentModes
-  );
-
-  vk::Extent2D chooseSwapExtent(
-    const vk::SurfaceCapabilitiesKHR& capabilities
-  );
+  Excal::Utils* excalUtils;
 
 public:
-  Swapchain(Excal::Context*, Excal::Utils*);
-  void updateContext(Excal::Context& context);
+  Swapchain(Excal::Utils*);
 
-  void createSwapChain();
-  void createImageViews();
+  struct SwapchainState {
+    vk::SwapchainKHR           swapchain;
+    vk::Format                 swapchainImageFormat;
+    vk::Extent2D               swapchainExtent;
+    //std::vector<vk::Image>     swapchainImages;
+    //std::vector<vk::ImageView> swapchainImageViews;
+  };
+
+  SwapchainState createSwapchain(
+    const vk::PhysicalDevice&,
+    const vk::Device&,
+    const vk::SurfaceKHR&,
+    GLFWwindow*
+  );
+
+  std::vector<vk::ImageView> createImageViews(
+    const vk::Device&,
+    const std::vector<vk::Image>&,
+    const vk::Format&
+  );
+
+  vk::PresentModeKHR chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>&);
+  vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR&, GLFWwindow*);
+  vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
+    const std::vector<vk::SurfaceFormatKHR>&
+  );
 };
 }

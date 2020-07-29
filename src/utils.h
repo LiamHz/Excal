@@ -6,26 +6,31 @@
 #include <vector>
 
 #include "structs.h"
-#include "context.h"
 
 namespace Excal
 {
 class Utils
 {
-private:
-  Excal::Context* context;
-
 public:
-  Utils(Excal::Context*);
+  Utils();
 
   QueueFamilyIndices findQueueFamilies(
-    vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface
+    const vk::PhysicalDevice&,
+    const vk::SurfaceKHR&
   );
 
-  std::vector<const char*> getRequiredExtensions();
+  std::vector<const char*> getRequiredExtensions(const bool validationLayersEnabled);
 
-  SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice physicalDevice);
+  SwapChainSupportDetails querySwapChainSupport(
+    const vk::PhysicalDevice&,
+    const vk::SurfaceKHR&
+  );
 
-  vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags);
+  vk::ImageView createImageView(
+    const vk::Device&,
+    const vk::Image&,
+    const vk::Format&,
+    const vk::ImageAspectFlags&
+  );
 };
 }

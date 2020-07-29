@@ -5,19 +5,15 @@
 #include <vulkan/vulkan.hpp>
 #include <vector>
 #include <iostream>
-#include "context.h"
 
 namespace Excal
 {
 Debug::Debug() {}
 
-void Debug::updateContext(Excal::Context& context) {
-  context.debug = {
-    enableValidationLayers,
-    checkValidationLayerSupport(),
-    validationLayers,
-    getDebugMessengerCreateInfo()
-  };
+
+std::vector<const char*> Debug::getValidationLayers()
+{
+  return { "VK_LAYER_KHRONOS_validation" };
 }
 
 bool Debug::checkValidationLayerSupport()
@@ -25,6 +21,7 @@ bool Debug::checkValidationLayerSupport()
   auto availableLayers = vk::enumerateInstanceLayerProperties();
 
   // Check if all of the layers in validationLayers exist in availableLayers
+  auto validationLayers = getValidationLayers();
   for (const char* layerName : validationLayers) {
     bool layerFound = false;
 
@@ -44,10 +41,10 @@ bool Debug::checkValidationLayerSupport()
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL Debug::debugCallback(
-  VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-  VkDebugUtilsMessageTypeFlagsEXT messageType,
+  VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
+  VkDebugUtilsMessageTypeFlagsEXT             messageType,
   const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-  void* pUserData
+  void*                                       pUserData
 ) {
   std::cerr << std::endl << "validation layer: " << pCallbackData->pMessage << std::endl;
 

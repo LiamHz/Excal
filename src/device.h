@@ -3,38 +3,42 @@
 #include <vulkan/vulkan.hpp>
 
 #include "utils.h"
-#include "context.h"
 
 namespace Excal
 {
 class Device
 {
 private:
-  vk::Instance            instance;
-  vk::PhysicalDevice      physicalDevice;
-  vk::Device              device;
-  vk::Queue               graphicsQueue;
-  vk::Queue               presentQueue;
-  vk::SampleCountFlagBits msaaSamples;
-
-  Excal::Context* context;
   Excal::Utils*   excalUtils;
 
-  int  rateDeviceSuitability(vk::PhysicalDevice physicalDevice);
-  bool checkDeviceExtensionSupport(vk::PhysicalDevice physicalDevice);
-
-  vk::SampleCountFlagBits getMaxUsableSampleCount();
-
-  const std::vector<const char*> deviceExtensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME
-  };
-
 public:
-  Device(Excal::Context*, Excal::Utils*);
-  void updateContext(Excal::Context& context);
+  Device(Excal::Utils*);
 
-  void createInstance();
-  void pickPhysicalDevice();
-  void createLogicalDevice();
+  vk::Instance createInstance(
+    const bool validationLayersEnabled,
+    const bool validationLayersSupported,
+    const std::vector<const char*>&,
+    const VkDebugUtilsMessengerCreateInfoEXT&
+  );
+
+  vk::PhysicalDevice pickPhysicalDevice(const vk::Instance&, const vk::SurfaceKHR&);
+  vk::Device createLogicalDevice(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
+
+  vk::Queue getGraphicsQueue(
+    const vk::PhysicalDevice&,
+    const vk::Device&,
+    const vk::SurfaceKHR&
+  );
+
+  vk::Queue getPresentQueue(
+    const vk::PhysicalDevice&,
+    const vk::Device&,
+    const vk::SurfaceKHR&
+  );
+
+  std::vector<const char*> getDeviceExtensions();
+  bool checkDeviceExtensionSupport(const vk::PhysicalDevice& physicalDevice);
+  int  rateDeviceSuitability(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
+  vk::SampleCountFlagBits getMaxUsableSampleCount(const vk::PhysicalDevice&);
 };
 }

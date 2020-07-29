@@ -5,25 +5,16 @@
 #include <vector>
 #include <iostream>
 
-#include "context.h"
-
 namespace Excal
 {
 class Debug
 {
-private:
-  //#define NDEBUG
-  #ifdef NDEBUG
-    const bool enableValidationLayers = false;
-  #else
-    const bool enableValidationLayers = true;
-  #endif
-
-  const std::vector<const char*> validationLayers = {
-    "VK_LAYER_KHRONOS_validation"
-  };
+public:
+  Debug();
 
   bool checkValidationLayerSupport();
+  std::vector<const char*> getValidationLayers();
+  VkDebugUtilsMessengerCreateInfoEXT getDebugMessengerCreateInfo();
 
   static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -31,11 +22,5 @@ private:
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
     void* pUserData
   );
-
-  VkDebugUtilsMessengerCreateInfoEXT getDebugMessengerCreateInfo();
-
-public:
-  Debug();
-  void updateContext(Excal::Context& context);
 };
 }
