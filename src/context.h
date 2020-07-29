@@ -33,11 +33,20 @@ public:
     vk::SampleCountFlagBits msaaSamples;
   };
 
+  struct SwapchainContext {
+    vk::SwapchainKHR           swapchain;
+    vk::Format                 swapchainImageFormat;
+    vk::Extent2D               swapchainExtent;
+    std::vector<vk::Image>     swapchainImages;
+    std::vector<vk::ImageView> swapchainImageViews;
+  };
+
 public:
   Context();
 
-  DebugContext   debug;
-  SurfaceContext surface;
-  DeviceContext  device;
+  DebugContext     debug;
+  SurfaceContext   surface;
+  DeviceContext    device;
+  SwapchainContext swapchain;
 };
 }

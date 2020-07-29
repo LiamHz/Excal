@@ -33,6 +33,7 @@
 #include "device.h"
 #include "surface.h"
 #include "debug.h"
+#include "swapchain.h"
 #include "context.h"
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -81,13 +82,6 @@ public:
 private:
   VkDebugUtilsMessengerEXT       debugMessenger;
 
-  vk::SwapchainKHR               swapChain;
-  vk::Format                     swapChainImageFormat;
-  vk::Extent2D                   swapChainExtent;
-  std::vector<vk::Image>         swapChainImages;
-  std::vector<vk::ImageView>     swapChainImageViews;
-  std::vector<VkFramebuffer>     swapChainFramebuffers;
-
   vk::PipelineLayout             pipelineLayout;
   vk::PipelineCache              pipelineCache;
   vk::Pipeline                   graphicsPipeline;
@@ -128,6 +122,7 @@ private:
   vk::Image                      colorImage;
   vk::DeviceMemory               colorImageMemory;
   vk::ImageView                  colorImageView;
+  std::vector<VkFramebuffer>     swapchainFramebuffers;
 
   size_t                         currentFrame = 0;
   bool                           framebufferResized = false;
@@ -136,10 +131,11 @@ private:
   // and can change during program execution
   Excal::Context context;
 
-  Excal::Debug   excalDebug;
-  Excal::Surface excalSurface;
-  Excal::Utils   excalUtils  = {&context};
-  Excal::Device  excalDevice = {&context, &excalUtils};
+  Excal::Debug     excalDebug;
+  Excal::Surface   excalSurface;
+  Excal::Utils     excalUtils     = {&context};
+  Excal::Device    excalDevice    = {&context, &excalUtils};
+  Excal::Swapchain excalSwapchain = {&context, &excalUtils};
 
   // Set by Excal::Surface
   GLFWwindow*    window;
@@ -152,6 +148,13 @@ private:
   vk::Queue               graphicsQueue;
   vk::Queue               presentQueue;
   vk::SampleCountFlagBits msaaSamples;
+
+  // Set by Excal::Swapchain
+  vk::SwapchainKHR               swapchain;
+  vk::Format                     swapchainImageFormat;
+  vk::Extent2D                   swapchainExtent;
+  std::vector<vk::Image>         swapchainImages;
+  std::vector<vk::ImageView>     swapchainImageViews;
 
   void initVulkan() {
     // Update context, and create instance
@@ -185,8 +188,17 @@ private:
     presentQueue   = context.device.presentQueue;
     msaaSamples    = context.device.msaaSamples;
 
-    createSwapChain();
-    createImageViews();
+    // Create swapchain and image views
+    excalSwapchain.createSwapChain();
+    excalSwapchain.createImageViews();
+    excalSwapchain.updateContext(context);
+
+    swapchain            = context.swapchain.swapchain;
+    swapchainImageFormat = context.swapchain.swapchainImageFormat;
+    swapchainExtent      = context.swapchain.swapchainExtent;
+    swapchainImages      = context.swapchain.swapchainImages;
+    swapchainImageViews  = context.swapchain.swapchainImageViews;
+
     createRenderPass();
     createDescriptorSetLayout();
     createGraphicsPipeline();
@@ -261,7 +273,7 @@ private:
     device.destroyImage(depthImage);
     device.freeMemory(depthImageMemory);
 
-    for (auto framebuffer : swapChainFramebuffers) {
+    for (auto framebuffer : swapchainFramebuffers) {
       device.destroyFramebuffer(framebuffer);
     }
 
@@ -274,66 +286,22 @@ private:
     device.destroyPipelineLayout(pipelineLayout);
     device.destroyRenderPass(renderPass);
 
-    for (auto imageView : swapChainImageViews) {
+    for (auto imageView : swapchainImageViews) {
       device.destroyImageView(imageView);
     }
 
-    for (size_t i=0; i < swapChainImages.size(); i++) {
+    for (size_t i=0; i < swapchainImages.size(); i++) {
       device.destroyBuffer(uniformBuffers[i]);
       device.freeMemory(uniformBuffersMemory[i]);
     }
 
-    device.destroySwapchainKHR(swapChain);
-  }
-
-  void createSwapChain() {
-    SwapChainSupportDetails swapChainSupport = excalUtils.querySwapChainSupport(physicalDevice);
-
-    auto surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.surfaceFormats);
-    auto presentMode   = chooseSwapPresentMode(swapChainSupport.presentModes);
-    auto extent        = chooseSwapExtent(swapChainSupport.surfaceCapabilities);
-
-    uint32_t imageCount = swapChainSupport.surfaceCapabilities.minImageCount + 1;
-    if (  swapChainSupport.surfaceCapabilities.maxImageCount > 0
-       && imageCount > swapChainSupport.surfaceCapabilities.maxImageCount
-    ) {
-      imageCount = swapChainSupport.surfaceCapabilities.maxImageCount;
-    }
-
-    vk::SwapchainCreateInfoKHR createInfo(
-      {}, surface, imageCount,
-      surfaceFormat.format, surfaceFormat.colorSpace, extent,
-      1, vk::ImageUsageFlagBits::eColorAttachment
-    );
-    createInfo.preTransform = swapChainSupport.surfaceCapabilities.currentTransform;
-
-    QueueFamilyIndices indices = excalUtils.findQueueFamilies(physicalDevice, surface);
-
-    uint32_t queueFamilyIndices[] = {
-      indices.graphicsFamily.value(),
-      indices.presentFamily.value()
-    };
-
-    if (indices.graphicsFamily != indices.presentFamily) {
-      createInfo.imageSharingMode      = vk::SharingMode::eConcurrent;
-      createInfo.queueFamilyIndexCount = 2;
-      createInfo.pQueueFamilyIndices   = queueFamilyIndices;
-    } else {
-      createInfo.imageSharingMode      = vk::SharingMode::eExclusive;
-      createInfo.queueFamilyIndexCount = 0;
-      createInfo.pQueueFamilyIndices   = nullptr;
-    }
-
-    swapChain            = device.createSwapchainKHR(createInfo);
-    swapChainImages      = device.getSwapchainImagesKHR(swapChain);
-    swapChainImageFormat = surfaceFormat.format;
-    swapChainExtent      = extent;
+    device.destroySwapchainKHR(swapchain);
   }
 
   void recreateSwapChain() {
     // Handle widow minimization
     int width = 0, height = 0;
-    glfwGetFramebufferSize(window, &width, &height);
+    glfwGetFramebufferSize(context.surface.window, &width, &height);
 
     while (width == 0 || height == 0) {
       glfwGetFramebufferSize(window, &width, &height);
@@ -342,8 +310,8 @@ private:
 
     device.waitIdle();
 
-    createSwapChain();
-    createImageViews();
+    excalSwapchain.createSwapChain();
+    excalSwapchain.createImageViews();
     createRenderPass();
     createGraphicsPipeline();
     createColorResources();
@@ -354,33 +322,9 @@ private:
     createCommandBuffers();
   }
 
-  vk::ImageView createImageView(
-    vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags
-  ) {
-    auto imageView = device.createImageView(
-      vk::ImageViewCreateInfo(
-        {}, image, vk::ImageViewType::e2D, format,
-        vk::ComponentMapping(vk::ComponentSwizzle::eIdentity),
-        vk::ImageSubresourceRange(aspectFlags, 0, 1, 0, 1)
-      )
-    );
-
-    return imageView;
-  }
-
-  void createImageViews() {
-    swapChainImageViews.resize(swapChainImages.size());
-
-    for (size_t i=0; i < swapChainImages.size(); i++) {
-      swapChainImageViews[i] = createImageView(
-        swapChainImages[i], swapChainImageFormat, vk::ImageAspectFlagBits::eColor
-      );
-    }
-  }
-
   void createRenderPass() {
     vk::AttachmentDescription colorAttachment(
-      {}, swapChainImageFormat,
+      {}, swapchainImageFormat,
       msaaSamples,
       vk::AttachmentLoadOp::eClear,
       vk::AttachmentStoreOp::eStore,
@@ -403,7 +347,7 @@ private:
 
     // Resolve the multiple fragments per pixel created via MSAA
     vk::AttachmentDescription colorAttachmentResolve(
-      {}, swapChainImageFormat,
+      {}, swapchainImageFormat,
       vk::SampleCountFlagBits::e1,
       vk::AttachmentLoadOp::eDontCare,
       vk::AttachmentStoreOp::eStore,
@@ -495,10 +439,10 @@ private:
     // Fixed functions of graphics pipeline
     vk::Viewport viewport(
       0.0f, 0.0f,
-      (float) swapChainExtent.width, (float) swapChainExtent.height,
+      (float) swapchainExtent.width, (float) swapchainExtent.height,
       0.0f, 1.0f
     );
-    vk::Rect2D scissor({0, 0}, swapChainExtent);
+    vk::Rect2D scissor({0, 0}, swapchainExtent);
 
     vk::PipelineViewportStateCreateInfo viewportState({}, 1, &viewport, 1, &scissor);
 
@@ -573,20 +517,20 @@ private:
   }
 
   void createFramebuffers() {
-    swapChainFramebuffers.resize(swapChainImageViews.size());
+    swapchainFramebuffers.resize(swapchainImageViews.size());
 
-    for (size_t i=0; i < swapChainImageViews.size(); i++) {
+    for (size_t i=0; i < swapchainImageViews.size(); i++) {
       std::array<vk::ImageView, 3> attachments = {
         colorImageView,
         depthImageView,
-        swapChainImageViews[i],
+        swapchainImageViews[i],
       };
 
-      swapChainFramebuffers[i] = device.createFramebuffer(
+      swapchainFramebuffers[i] = device.createFramebuffer(
         vk::FramebufferCreateInfo(
           {}, renderPass,
           attachments.size(), attachments.data(),
-          swapChainExtent.width, swapChainExtent.height, 1
+          swapchainExtent.width, swapchainExtent.height, 1
         )
       );
     }
@@ -874,7 +818,7 @@ private:
   }
 
   void createTextureImageView() {
-    textureImageView = createImageView(
+    textureImageView = excalUtils.createImageView(
       textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor
     );
   }
@@ -962,11 +906,11 @@ private:
 
   void createDescriptorPool() {
     vk::DescriptorPoolSize uniformBufferPoolSize(
-      vk::DescriptorType::eUniformBuffer, swapChainImages.size()
+      vk::DescriptorType::eUniformBuffer, swapchainImages.size()
     );
 
     vk::DescriptorPoolSize samplerPoolSize(
-      vk::DescriptorType::eCombinedImageSampler, swapChainImages.size()
+      vk::DescriptorType::eCombinedImageSampler, swapchainImages.size()
     );
 
     std::array<vk::DescriptorPoolSize, 2> poolSizes = {
@@ -976,25 +920,25 @@ private:
 
     descriptorPool = device.createDescriptorPool(
       vk::DescriptorPoolCreateInfo(
-        {}, swapChainImages.size(),
+        {}, swapchainImages.size(),
         poolSizes.size(), poolSizes.data()
       )
     );
   }
 
   void createDescriptorSets() {
-    descriptorSets.resize(swapChainImages.size());
+    descriptorSets.resize(swapchainImages.size());
     std::vector<vk::DescriptorSetLayout> layouts(
-      swapChainImages.size(), descriptorSetLayout
+      swapchainImages.size(), descriptorSetLayout
     );
 
     descriptorSets = device.allocateDescriptorSets(
       vk::DescriptorSetAllocateInfo(
-        descriptorPool, swapChainImages.size(), layouts.data()
+        descriptorPool, swapchainImages.size(), layouts.data()
       )
     );
 
-    for (size_t i=0; i < swapChainImages.size(); i++) {
+    for (size_t i=0; i < swapchainImages.size(); i++) {
       vk::DescriptorBufferInfo bufferInfo(
         uniformBuffers[i], 0, sizeof(UniformBufferObject)
       );
@@ -1032,10 +976,10 @@ private:
   void createUniformBuffers() {
     vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
 
-    uniformBuffers.resize(swapChainImages.size());
-    uniformBuffersMemory.resize(swapChainImages.size());
+    uniformBuffers.resize(swapchainImages.size());
+    uniformBuffersMemory.resize(swapchainImages.size());
 
-    for (size_t i=0; i < swapChainImages.size(); i++) {
+    for (size_t i=0; i < swapchainImages.size(); i++) {
       createBuffer(
         bufferSize,
         vk::BufferUsageFlagBits::eUniformBuffer,
@@ -1077,7 +1021,7 @@ private:
 
     ubo.proj = glm::perspective(
       glm::radians(45.0f),
-      swapChainExtent.width / (float) swapChainExtent.height,
+      swapchainExtent.width / (float) swapchainExtent.height,
       0.1f, 10.0f
     );
 
@@ -1090,7 +1034,7 @@ private:
   }
 
   void createCommandBuffers() {
-    commandBuffers.resize(swapChainFramebuffers.size());
+    commandBuffers.resize(swapchainFramebuffers.size());
 
     commandBuffers = device.allocateCommandBuffers(
       vk::CommandBufferAllocateInfo(
@@ -1111,8 +1055,8 @@ private:
       cmd.beginRenderPass(
         vk::RenderPassBeginInfo(
           renderPass,
-          swapChainFramebuffers[i],
-          vk::Rect2D({0, 0}, swapChainExtent),
+          swapchainFramebuffers[i],
+          vk::Rect2D({0, 0}, swapchainExtent),
           clearValues.size(), clearValues.data()
         ),
         vk::SubpassContents::eInline
@@ -1143,7 +1087,7 @@ private:
     imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-    imagesInFlight.resize(swapChainImages.size());
+    imagesInFlight.resize(swapchainImages.size());
 
     for (size_t i=0; i < MAX_FRAMES_IN_FLIGHT; i++) {
       imageAvailableSemaphores[i]
@@ -1162,7 +1106,7 @@ private:
 
     uint32_t imageIndex;
     vk::Result result = device.acquireNextImageKHR(
-      swapChain, UINT64_MAX,
+      swapchain, UINT64_MAX,
       imageAvailableSemaphores[currentFrame],
       nullptr, &imageIndex
     );
@@ -1199,10 +1143,10 @@ private:
 
     graphicsQueue.submit(1, &submitInfo, inFlightFences[currentFrame]);
 
-    vk::SwapchainKHR swapChains[] = {swapChain};
+    vk::SwapchainKHR swapchains[] = {swapchain};
 
     result = presentQueue.presentKHR(
-      vk::PresentInfoKHR(1, signalSemaphores, 1, swapChains, &imageIndex)
+      vk::PresentInfoKHR(1, signalSemaphores, 1, swapchains, &imageIndex)
     );
 
     if (   result == vk::Result::eErrorOutOfDateKHR
@@ -1217,10 +1161,10 @@ private:
   }
 
   void createColorResources() {
-    vk::Format colorFormat = swapChainImageFormat;
+    vk::Format colorFormat = swapchainImageFormat;
 
     createImage(
-      swapChainExtent.width, swapChainExtent.height,
+      swapchainExtent.width, swapchainExtent.height,
       msaaSamples,
       colorFormat,
       vk::ImageTiling::eOptimal,
@@ -1230,7 +1174,7 @@ private:
       colorImage, colorImageMemory
     );
 
-    colorImageView = createImageView(
+    colorImageView = excalUtils.createImageView(
       colorImage, colorFormat, vk::ImageAspectFlagBits::eColor
     );
   }
@@ -1239,7 +1183,7 @@ private:
     auto depthFormat = findDepthFormat();
 
     createImage(
-      swapChainExtent.width, swapChainExtent.height,
+      swapchainExtent.width, swapchainExtent.height,
       msaaSamples,
       depthFormat,
       vk::ImageTiling::eOptimal,
@@ -1248,7 +1192,7 @@ private:
       depthImage, depthImageMemory
     );
 
-    depthImageView = createImageView(
+    depthImageView = excalUtils.createImageView(
       depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth
     );
   }
@@ -1288,61 +1232,6 @@ private:
       }, vk::ImageTiling::eOptimal,
       vk::FormatFeatureFlagBits::eDepthStencilAttachment
     );
-  }
-
-  vk::SurfaceFormatKHR chooseSwapSurfaceFormat(std::vector<vk::SurfaceFormatKHR> availableFormats) {
-    // Prefer SRGB color format if available
-    for (const auto& availableFormat : availableFormats) {
-      if (  availableFormat.format     == vk::Format::eB8G8R8A8Srgb
-         && availableFormat.colorSpace == vk::ColorSpaceKHR::eVkColorspaceSrgbNonlinear
-      ) {
-        return availableFormat;
-      }
-    }
-
-    return availableFormats[0];
-  }
-
-  vk::PresentModeKHR chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes) {
-    // Prefer triple buffering if available
-    for (const auto& availablePresentMode : availablePresentModes) {
-      if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
-        return availablePresentMode;
-      }
-    }
-
-    return vk::PresentModeKHR::eFifo;
-  }
-
-  vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities) {
-    // Note: Swap extent is the resolution of the swap chain images.
-    //       Almost always equal to the resolution of the window being drawn to.
-
-    // Window managers that allow extent to differ from resolution
-    // of the window being drawn to set currentExtent to UINT32_MAX
-    if (capabilities.currentExtent.width != UINT32_MAX) {
-      return capabilities.currentExtent;
-    } else {
-      int width, height;
-      glfwGetFramebufferSize(window, &width, &height);
-
-      vk::Extent2D actualExtent = {
-        static_cast<uint32_t>(width),
-        static_cast<uint32_t>(height)
-      };
-
-      // Clamp value of WIDTH and HEIGHT between the min and max
-      // extents supported by the implementation
-      actualExtent.width = std::max(capabilities.minImageExtent.width,
-                                    std::min(capabilities.maxImageExtent.width,
-                                             actualExtent.width));
-
-      actualExtent.height = std::max(capabilities.minImageExtent.height,
-                                     std::min(capabilities.maxImageExtent.height,
-                                              actualExtent.height));
-
-      return actualExtent;
-    }
   }
 
   void setupDebugMessenger() {

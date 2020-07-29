@@ -11,10 +11,8 @@
 
 namespace Excal
 {
-Device::Device(
-  Excal::Context* context,
-  Excal::Utils* excalUtils
-) : excalUtils(excalUtils), context(context) {}
+Device::Device(Excal::Context* context, Excal::Utils* excalUtils)
+  : context(context), excalUtils(excalUtils) {}
 
 void Device::updateContext(Excal::Context& context) {
   context.device = {

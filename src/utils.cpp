@@ -86,4 +86,18 @@ SwapChainSupportDetails Utils::querySwapChainSupport(vk::PhysicalDevice physical
 
   return details;
 }
+
+vk::ImageView Utils::createImageView(
+  vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags
+) {
+  auto imageView = context->device.device.createImageView(
+    vk::ImageViewCreateInfo(
+      {}, image, vk::ImageViewType::e2D, format,
+      vk::ComponentMapping(vk::ComponentSwizzle::eIdentity),
+      vk::ImageSubresourceRange(aspectFlags, 0, 1, 0, 1)
+    )
+  );
+
+  return imageView;
+}
 }

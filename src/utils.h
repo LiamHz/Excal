@@ -25,5 +25,7 @@ public:
   std::vector<const char*> getRequiredExtensions();
 
   SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice physicalDevice);
+
+  vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags);
 };
 }
