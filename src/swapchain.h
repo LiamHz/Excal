@@ -4,6 +4,8 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
 
+#include "structs.h"
+
 namespace Excal::Swapchain
 {
 struct SwapchainState {
@@ -18,7 +20,8 @@ SwapchainState createSwapchain(
   const vk::PhysicalDevice&,
   const vk::Device&,
   const vk::SurfaceKHR&,
-  GLFWwindow*
+  GLFWwindow*,
+  const QueueFamilyIndices&
 );
 
 std::vector<vk::ImageView> createImageViews(

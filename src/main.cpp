@@ -174,15 +174,20 @@ private:
     surface = Excal::Surface::createSurface(instance, window);
 
     physicalDevice = Excal::Device::pickPhysicalDevice(instance, surface);
-    device         = Excal::Device::createLogicalDevice(physicalDevice, surface);
+    auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
 
-    graphicsQueue = Excal::Device::getGraphicsQueue(physicalDevice, device, surface);
-    presentQueue  = Excal::Device::getPresentQueue(physicalDevice, device, surface);
+    device = Excal::Device::createLogicalDevice(physicalDevice, queueFamilyIndices);
+
+    graphicsQueue = device.getQueue(queueFamilyIndices.graphicsFamily.value(), 0);
+    presentQueue  = device.getQueue(queueFamilyIndices.presentFamily.value(), 0);
+
     msaaSamples   = Excal::Device::getMaxUsableSampleCount(physicalDevice);
 
     // Create swapchain and image views
     auto swapchainState = Excal::Swapchain::createSwapchain(
-      physicalDevice, device, surface, window
+      physicalDevice, device,
+      surface, window,
+      queueFamilyIndices
     );
 
     swapchain            = swapchainState.swapchain;
@@ -190,6 +195,7 @@ private:
     swapchainExtent      = swapchainState.swapchainExtent;
 
     swapchainImages     = device.getSwapchainImagesKHR(swapchain);
+
     swapchainImageViews = Excal::Swapchain::createImageViews(
       device, swapchainImages, swapchainImageFormat
     );
@@ -313,7 +319,12 @@ private:
     device.waitIdle();
 
     // TODO Member variables (swapchain, swapchainImages etc) should be reassigned here
-    Excal::Swapchain::createSwapchain(physicalDevice, device, surface, window);
+    auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
+    Excal::Swapchain::createSwapchain(
+      physicalDevice, device,
+      surface, window,
+      queueFamilyIndices
+    );
     Excal::Swapchain::createImageViews(device, swapchainImages, swapchainImageFormat);
     createRenderPass();
     createGraphicsPipeline();
@@ -540,7 +551,7 @@ private:
   }
 
   void createCommandPool() {
-    QueueFamilyIndices queueFamilyIndices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
+    QueueFamilyIndices queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
 
     commandPool = device.createCommandPool(
       vk::CommandPoolCreateInfo({}, queueFamilyIndices.graphicsFamily.value())

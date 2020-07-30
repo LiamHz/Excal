@@ -6,6 +6,7 @@
 #include <tuple>
 
 #include "utils.h"
+#include "structs.h"
 
 namespace Excal::Swapchain
 {
@@ -13,7 +14,8 @@ Excal::Swapchain::SwapchainState createSwapchain(
   const vk::PhysicalDevice& physicalDevice,
   const vk::Device&         device,
   const vk::SurfaceKHR&     surface,
-  GLFWwindow*               window
+  GLFWwindow*               window,
+  const QueueFamilyIndices& indices
 ) {
   SwapChainSupportDetails swapchainSupport
     = Excal::Utils::querySwapChainSupport(physicalDevice, surface);
@@ -35,8 +37,6 @@ Excal::Swapchain::SwapchainState createSwapchain(
     1, vk::ImageUsageFlagBits::eColorAttachment
   );
   createInfo.preTransform = swapchainSupport.surfaceCapabilities.currentTransform;
-
-  QueueFamilyIndices indices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
 
   uint32_t queueFamilyIndices[] = {
     indices.graphicsFamily.value(),
@@ -127,13 +127,11 @@ vk::Extent2D chooseSwapExtent(
 
     // Clamp value of WIDTH and HEIGHT between the min and max
     // extents supported by the implementation
-    actualExtent.width = std::max(capabilities.minImageExtent.width,
-                                  std::min(capabilities.maxImageExtent.width,
-                                           actualExtent.width));
+    auto maxWidth = std::min(capabilities.maxImageExtent.width, actualExtent.width);
+    actualExtent.width = std::max(capabilities.minImageExtent.width, maxWidth);
 
-    actualExtent.height = std::max(capabilities.minImageExtent.height,
-                                   std::min(capabilities.maxImageExtent.height,
-                                            actualExtent.height));
+    auto maxHeight = std::min(capabilities.maxImageExtent.height, actualExtent.height);
+    actualExtent.height = std::max(capabilities.minImageExtent.height, maxHeight);
 
     return actualExtent;
   }

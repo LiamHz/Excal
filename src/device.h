@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "utils.h"
+#include "structs.h"
 
 namespace Excal::Device
 {
@@ -14,22 +14,12 @@ vk::Instance createInstance(
 );
 
 vk::PhysicalDevice pickPhysicalDevice(const vk::Instance&, const vk::SurfaceKHR&);
-vk::Device createLogicalDevice(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
-
-vk::Queue getGraphicsQueue(
-  const vk::PhysicalDevice&,
-  const vk::Device&,
-  const vk::SurfaceKHR&
-);
-
-vk::Queue getPresentQueue(
-  const vk::PhysicalDevice&,
-  const vk::Device&,
-  const vk::SurfaceKHR&
-);
+QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
+vk::Device createLogicalDevice(const vk::PhysicalDevice&, const QueueFamilyIndices&);
 
 std::vector<const char*> getDeviceExtensions();
 bool checkDeviceExtensionSupport(const vk::PhysicalDevice& physicalDevice);
-int  rateDeviceSuitability(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
+
+int rateDeviceSuitability(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
 vk::SampleCountFlagBits getMaxUsableSampleCount(const vk::PhysicalDevice&);
 }

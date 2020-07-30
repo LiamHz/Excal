@@ -9,11 +9,6 @@
 
 namespace Excal::Utils
 {
-QueueFamilyIndices findQueueFamilies(
-  const vk::PhysicalDevice&,
-  const vk::SurfaceKHR&
-);
-
 std::vector<const char*> getRequiredExtensions(const bool validationLayersEnabled);
 
 SwapChainSupportDetails querySwapChainSupport(

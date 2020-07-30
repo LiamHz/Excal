@@ -70,12 +70,47 @@ vk::PhysicalDevice pickPhysicalDevice(
   return candidates.rbegin()->second;
 }
 
-vk::Device createLogicalDevice(
+QueueFamilyIndices findQueueFamilies(
   const vk::PhysicalDevice& physicalDevice,
   const vk::SurfaceKHR&     surface
 ) {
-  QueueFamilyIndices indices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
+  QueueFamilyIndices indices;
+  auto queueFamilies = physicalDevice.getQueueFamilyProperties();
 
+  // Prefer a queue family with both graphics capabilities and surface support
+  // Otherwise track the indices of the two different queue families that, together,
+  // support both of these things
+  int i = 0;
+  for (const auto& queueFamily : queueFamilies)
+  {
+    if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics)
+    {
+      indices.graphicsFamily = i;
+    }
+
+    vk::Bool32 presentSupport = false;
+    presentSupport = physicalDevice.getSurfaceSupportKHR(i, surface);
+
+    if (presentSupport)
+    {
+      indices.presentFamily = i;
+    }
+
+    if (indices.isComplete())
+    {
+      break;
+    }
+
+    i++;
+  }
+
+  return indices;
+}
+
+vk::Device createLogicalDevice(
+  const vk::PhysicalDevice& physicalDevice,
+  const QueueFamilyIndices& indices
+) {
   std::set<uint32_t> uniqueQueueFamilies = {
     indices.graphicsFamily.value(),
     indices.presentFamily.value()
@@ -105,26 +140,6 @@ vk::Device createLogicalDevice(
       &deviceFeatures
     )
   );
-}
-
-vk::Queue getGraphicsQueue(
-  const vk::PhysicalDevice& physicalDevice,
-  const vk::Device&         device,
-  const vk::SurfaceKHR&     surface
-) {
-  QueueFamilyIndices indices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
-
-  return device.getQueue(indices.graphicsFamily.value(), 0);
-}
-
-vk::Queue getPresentQueue(
-  const vk::PhysicalDevice& physicalDevice,
-  const vk::Device&         device,
-  const vk::SurfaceKHR&     surface
-) {
-  QueueFamilyIndices indices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
-
-  return device.getQueue(indices.presentFamily.value(), 0);
 }
 
 int rateDeviceSuitability(
@@ -158,7 +173,7 @@ int rateDeviceSuitability(
     return 0;
   }
 
-  QueueFamilyIndices indices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
+  QueueFamilyIndices indices = findQueueFamilies(physicalDevice, surface);
   if (!indices.isComplete()) {
     return 0;
   }

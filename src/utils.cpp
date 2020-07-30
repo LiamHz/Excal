@@ -10,43 +10,6 @@
 
 namespace Excal::Utils
 {
-QueueFamilyIndices findQueueFamilies(
-  const vk::PhysicalDevice& physicalDevice,
-  const vk::SurfaceKHR&     surface
-) {
-  QueueFamilyIndices indices;
-  auto queueFamilies = physicalDevice.getQueueFamilyProperties();
-
-  // Prefer a queue family with both graphics capabilities and surface support
-  // Otherwise track the indices of the two different queue families that, together,
-  // support both of these things
-  int i = 0;
-  for (const auto& queueFamily : queueFamilies)
-  {
-    if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics)
-    {
-      indices.graphicsFamily = i;
-    }
-
-    vk::Bool32 presentSupport = false;
-    presentSupport = physicalDevice.getSurfaceSupportKHR(i, surface);
-
-    if (presentSupport)
-    {
-      indices.presentFamily = i;
-    }
-
-    if (indices.isComplete())
-    {
-      break;
-    }
-
-    i++;
-  }
-
-  return indices;
-}
-
 std::vector<const char*> getRequiredExtensions(
   const bool validationLayersEnabled
 ) {
