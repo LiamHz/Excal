@@ -71,4 +71,52 @@ VkDebugUtilsMessengerCreateInfoEXT getDebugMessengerCreateInfo()
     )
   );
 }
+
+// Create VkDebugUtilsMessengerEXT object
+// by looking up the address with vkGetInstanceProcAddr
+VkResult CreateDebugUtilsMessengerEXT(
+  const VkInstance&                         instance,
+  const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+  const VkAllocationCallbacks*              pAllocator,
+  VkDebugUtilsMessengerEXT*                 pDebugMessenger
+) {
+  auto func = (PFN_vkCreateDebugUtilsMessengerEXT)
+              vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+  if (func != nullptr) {
+    return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+  } else {
+    return VK_ERROR_EXTENSION_NOT_PRESENT;
+  }
+}
+
+void DestroyDebugUtilsMessengerEXT(
+  const VkInstance&               instance,
+  const VkDebugUtilsMessengerEXT& debugMessenger,
+  const VkAllocationCallbacks*    pAllocator
+) {
+  auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)
+              vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+  if (func != nullptr) {
+    func(instance, debugMessenger, pAllocator);
+  }
+}
+
+VkDebugUtilsMessengerEXT setupDebugMessenger(
+  const vk::Instance&                       instance,
+  const bool                                validationLayersEnabled,
+  const VkDebugUtilsMessengerCreateInfoEXT& debugMessengerCreateInfo
+) {
+  VkDebugUtilsMessengerEXT debugMessenger;
+
+  if (!validationLayersEnabled) return debugMessenger;
+
+  if (Excal::Debug::CreateDebugUtilsMessengerEXT(
+        instance, &debugMessengerCreateInfo, nullptr, &debugMessenger
+      ) != VK_SUCCESS)
+  {
+    throw std::runtime_error("failed to set up debug messenger!");
+  }
+
+  return debugMessenger;
+}
 }
