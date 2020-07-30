@@ -8,11 +8,9 @@
 
 #include "structs.h"
 
-namespace Excal
+namespace Excal::Utils
 {
-Utils::Utils() {}
-
-QueueFamilyIndices Utils::findQueueFamilies(
+QueueFamilyIndices findQueueFamilies(
   const vk::PhysicalDevice& physicalDevice,
   const vk::SurfaceKHR&     surface
 ) {
@@ -49,7 +47,7 @@ QueueFamilyIndices Utils::findQueueFamilies(
   return indices;
 }
 
-std::vector<const char*> Utils::getRequiredExtensions(
+std::vector<const char*> getRequiredExtensions(
   const bool validationLayersEnabled
 ) {
   uint32_t glfwExtensionCount = 0;
@@ -68,7 +66,7 @@ std::vector<const char*> Utils::getRequiredExtensions(
   return extensions;
 }
 
-SwapChainSupportDetails Utils::querySwapChainSupport(
+SwapChainSupportDetails querySwapChainSupport(
   const vk::PhysicalDevice& physicalDevice,
   const vk::SurfaceKHR&     surface
 ) {
@@ -80,7 +78,7 @@ SwapChainSupportDetails Utils::querySwapChainSupport(
   return details;
 }
 
-vk::ImageView Utils::createImageView(
+vk::ImageView createImageView(
   const vk::Device&           device,
   const vk::Image&            image,
   const vk::Format&           format,

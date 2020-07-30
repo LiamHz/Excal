@@ -4,41 +4,32 @@
 
 #include "utils.h"
 
-namespace Excal
+namespace Excal::Device
 {
-class Device
-{
-private:
-  Excal::Utils*   excalUtils;
+vk::Instance createInstance(
+  const bool validationLayersEnabled,
+  const bool validationLayersSupported,
+  const std::vector<const char*>&,
+  const VkDebugUtilsMessengerCreateInfoEXT&
+);
 
-public:
-  Device(Excal::Utils*);
+vk::PhysicalDevice pickPhysicalDevice(const vk::Instance&, const vk::SurfaceKHR&);
+vk::Device createLogicalDevice(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
 
-  vk::Instance createInstance(
-    const bool validationLayersEnabled,
-    const bool validationLayersSupported,
-    const std::vector<const char*>&,
-    const VkDebugUtilsMessengerCreateInfoEXT&
-  );
+vk::Queue getGraphicsQueue(
+  const vk::PhysicalDevice&,
+  const vk::Device&,
+  const vk::SurfaceKHR&
+);
 
-  vk::PhysicalDevice pickPhysicalDevice(const vk::Instance&, const vk::SurfaceKHR&);
-  vk::Device createLogicalDevice(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
+vk::Queue getPresentQueue(
+  const vk::PhysicalDevice&,
+  const vk::Device&,
+  const vk::SurfaceKHR&
+);
 
-  vk::Queue getGraphicsQueue(
-    const vk::PhysicalDevice&,
-    const vk::Device&,
-    const vk::SurfaceKHR&
-  );
-
-  vk::Queue getPresentQueue(
-    const vk::PhysicalDevice&,
-    const vk::Device&,
-    const vk::SurfaceKHR&
-  );
-
-  std::vector<const char*> getDeviceExtensions();
-  bool checkDeviceExtensionSupport(const vk::PhysicalDevice& physicalDevice);
-  int  rateDeviceSuitability(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
-  vk::SampleCountFlagBits getMaxUsableSampleCount(const vk::PhysicalDevice&);
-};
+std::vector<const char*> getDeviceExtensions();
+bool checkDeviceExtensionSupport(const vk::PhysicalDevice& physicalDevice);
+int  rateDeviceSuitability(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
+vk::SampleCountFlagBits getMaxUsableSampleCount(const vk::PhysicalDevice&);
 }

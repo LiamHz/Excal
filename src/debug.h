@@ -5,22 +5,16 @@
 #include <vector>
 #include <iostream>
 
-namespace Excal
+namespace Excal::Debug
 {
-class Debug
-{
-public:
-  Debug();
+bool checkValidationLayerSupport();
+std::vector<const char*> getValidationLayers();
+VkDebugUtilsMessengerCreateInfoEXT getDebugMessengerCreateInfo();
 
-  bool checkValidationLayerSupport();
-  std::vector<const char*> getValidationLayers();
-  VkDebugUtilsMessengerCreateInfoEXT getDebugMessengerCreateInfo();
-
-  static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-    VkDebugUtilsMessageTypeFlagsEXT messageType,
-    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-    void* pUserData
-  );
-};
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+  VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+  VkDebugUtilsMessageTypeFlagsEXT messageType,
+  const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+  void* pUserData
+);
 }

@@ -6,17 +6,14 @@
 #include <vector>
 #include <iostream>
 
-namespace Excal
+namespace Excal::Debug
 {
-Debug::Debug() {}
-
-
-std::vector<const char*> Debug::getValidationLayers()
+std::vector<const char*> getValidationLayers()
 {
   return { "VK_LAYER_KHRONOS_validation" };
 }
 
-bool Debug::checkValidationLayerSupport()
+bool checkValidationLayerSupport()
 {
   auto availableLayers = vk::enumerateInstanceLayerProperties();
 
@@ -40,7 +37,7 @@ bool Debug::checkValidationLayerSupport()
   return true;
 }
 
-VKAPI_ATTR VkBool32 VKAPI_CALL Debug::debugCallback(
+VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
   VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
   VkDebugUtilsMessageTypeFlagsEXT             messageType,
   const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
@@ -51,7 +48,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL Debug::debugCallback(
   return VK_FALSE;
 }
 
-VkDebugUtilsMessengerCreateInfoEXT Debug::getDebugMessengerCreateInfo()
+VkDebugUtilsMessengerCreateInfoEXT getDebugMessengerCreateInfo()
 {
   // Specify types of severities for callback to be called for
   vk::DebugUtilsMessageSeverityFlagsEXT severityFlags(

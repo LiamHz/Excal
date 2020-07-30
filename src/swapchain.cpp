@@ -7,18 +7,16 @@
 
 #include "utils.h"
 
-namespace Excal
+namespace Excal::Swapchain
 {
-Swapchain::Swapchain(Excal::Utils* excalUtils) : excalUtils(excalUtils) {}
-
-Swapchain::SwapchainState Swapchain::createSwapchain(
+Excal::Swapchain::SwapchainState createSwapchain(
   const vk::PhysicalDevice& physicalDevice,
   const vk::Device&         device,
   const vk::SurfaceKHR&     surface,
   GLFWwindow*               window
 ) {
   SwapChainSupportDetails swapchainSupport
-    = excalUtils->querySwapChainSupport(physicalDevice, surface);
+    = Excal::Utils::querySwapChainSupport(physicalDevice, surface);
 
   auto surfaceFormat = chooseSwapSurfaceFormat(swapchainSupport.surfaceFormats);
   auto presentMode   = chooseSwapPresentMode(swapchainSupport.presentModes);
@@ -38,7 +36,7 @@ Swapchain::SwapchainState Swapchain::createSwapchain(
   );
   createInfo.preTransform = swapchainSupport.surfaceCapabilities.currentTransform;
 
-  QueueFamilyIndices indices = excalUtils->findQueueFamilies(physicalDevice, surface);
+  QueueFamilyIndices indices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
 
   uint32_t queueFamilyIndices[] = {
     indices.graphicsFamily.value(),
@@ -62,7 +60,7 @@ Swapchain::SwapchainState Swapchain::createSwapchain(
   };
 }
 
-std::vector<vk::ImageView> Swapchain::createImageViews(
+std::vector<vk::ImageView> createImageViews(
   const vk::Device&             device,
   const std::vector<vk::Image>& swapchainImages,
   const vk::Format&             swapchainImageFormat
@@ -71,7 +69,7 @@ std::vector<vk::ImageView> Swapchain::createImageViews(
   swapchainImageViews.resize(swapchainImages.size());
 
   for (size_t i=0; i < swapchainImages.size(); i++) {
-    swapchainImageViews[i] = excalUtils->createImageView(
+    swapchainImageViews[i] = Excal::Utils::createImageView(
       device, swapchainImages[i], swapchainImageFormat, vk::ImageAspectFlagBits::eColor
     );
   }
@@ -79,7 +77,7 @@ std::vector<vk::ImageView> Swapchain::createImageViews(
   return swapchainImageViews;
 }
 
-vk::SurfaceFormatKHR Swapchain::chooseSwapSurfaceFormat(
+vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
   const std::vector<vk::SurfaceFormatKHR>& availableFormats
 ) {
   // Prefer SRGB color format if available
@@ -94,7 +92,7 @@ vk::SurfaceFormatKHR Swapchain::chooseSwapSurfaceFormat(
   return availableFormats[0];
 }
 
-vk::PresentModeKHR Swapchain::chooseSwapPresentMode(
+vk::PresentModeKHR chooseSwapPresentMode(
   const std::vector<vk::PresentModeKHR>& availablePresentModes
 ) {
   // Prefer triple buffering if available
@@ -107,7 +105,7 @@ vk::PresentModeKHR Swapchain::chooseSwapPresentMode(
   return vk::PresentModeKHR::eFifo;
 }
 
-vk::Extent2D Swapchain::chooseSwapExtent(
+vk::Extent2D chooseSwapExtent(
   const vk::SurfaceCapabilitiesKHR& capabilities,
   GLFWwindow*                       window
 ) {

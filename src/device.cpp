@@ -7,11 +7,9 @@
 #include <map>
 #include <iostream>
 
-namespace Excal
+namespace Excal::Device
 {
-Device::Device(Excal::Utils* excalUtils) : excalUtils(excalUtils) {}
-
-vk::Instance Device::createInstance(
+vk::Instance createInstance(
   const bool                                validationLayersEnabled,
   const bool                                validationLayersSupported,
   const std::vector<const char*>&           validationLayers,
@@ -24,7 +22,7 @@ vk::Instance Device::createInstance(
   vk::ApplicationInfo appInfo("Excal Test", 1, "Excal", 1, VK_API_VERSION_1_2);
 
   // Specify which global extensions to use
-  auto extensions = excalUtils->getRequiredExtensions(validationLayersEnabled);
+  auto extensions = Excal::Utils::getRequiredExtensions(validationLayersEnabled);
 
   vk::InstanceCreateInfo createInfo(vk::InstanceCreateFlags(), &appInfo);
   createInfo.enabledExtensionCount   = extensions.size();
@@ -46,7 +44,7 @@ vk::Instance Device::createInstance(
   return vk::createInstance(createInfo);
 }
 
-vk::PhysicalDevice Device::pickPhysicalDevice(
+vk::PhysicalDevice pickPhysicalDevice(
   const vk::Instance&   instance,
   const vk::SurfaceKHR& surface
 ) {
@@ -72,11 +70,11 @@ vk::PhysicalDevice Device::pickPhysicalDevice(
   return candidates.rbegin()->second;
 }
 
-vk::Device Device::createLogicalDevice(
+vk::Device createLogicalDevice(
   const vk::PhysicalDevice& physicalDevice,
   const vk::SurfaceKHR&     surface
 ) {
-  QueueFamilyIndices indices = excalUtils->findQueueFamilies(physicalDevice, surface);
+  QueueFamilyIndices indices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
 
   std::set<uint32_t> uniqueQueueFamilies = {
     indices.graphicsFamily.value(),
@@ -109,27 +107,27 @@ vk::Device Device::createLogicalDevice(
   );
 }
 
-vk::Queue Device::getGraphicsQueue(
+vk::Queue getGraphicsQueue(
   const vk::PhysicalDevice& physicalDevice,
   const vk::Device&         device,
   const vk::SurfaceKHR&     surface
 ) {
-  QueueFamilyIndices indices = excalUtils->findQueueFamilies(physicalDevice, surface);
+  QueueFamilyIndices indices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
 
   return device.getQueue(indices.graphicsFamily.value(), 0);
 }
 
-vk::Queue Device::getPresentQueue(
+vk::Queue getPresentQueue(
   const vk::PhysicalDevice& physicalDevice,
   const vk::Device&         device,
   const vk::SurfaceKHR&     surface
 ) {
-  QueueFamilyIndices indices = excalUtils->findQueueFamilies(physicalDevice, surface);
+  QueueFamilyIndices indices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
 
   return device.getQueue(indices.presentFamily.value(), 0);
 }
 
-int Device::rateDeviceSuitability(
+int rateDeviceSuitability(
   const vk::PhysicalDevice& physicalDevice,
   const vk::SurfaceKHR&     surface
 ) {
@@ -153,14 +151,14 @@ int Device::rateDeviceSuitability(
   }
 
   SwapChainSupportDetails swapChainSupport
-    = excalUtils->querySwapChainSupport(physicalDevice, surface);
+    = Excal::Utils::querySwapChainSupport(physicalDevice, surface);
   if (   swapChainSupport.surfaceFormats.empty()
       || swapChainSupport.presentModes.empty()
   ) {
     return 0;
   }
 
-  QueueFamilyIndices indices = excalUtils->findQueueFamilies(physicalDevice, surface);
+  QueueFamilyIndices indices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
   if (!indices.isComplete()) {
     return 0;
   }
@@ -168,11 +166,11 @@ int Device::rateDeviceSuitability(
   return score;
 }
 
-std::vector<const char*> Device::getDeviceExtensions() {
+std::vector<const char*> getDeviceExtensions() {
   return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 }
 
-bool Device::checkDeviceExtensionSupport(
+bool checkDeviceExtensionSupport(
   const vk::PhysicalDevice& physicalDevice
 ) {
   auto deviceExtensions    = getDeviceExtensions();
@@ -189,7 +187,7 @@ bool Device::checkDeviceExtensionSupport(
   return requiredExtensions.empty();
 }
 
-vk::SampleCountFlagBits Device::getMaxUsableSampleCount(
+vk::SampleCountFlagBits getMaxUsableSampleCount(
   const vk::PhysicalDevice& physicalDevice
 ) {
   auto deviceProperties = physicalDevice.getProperties();

@@ -71,7 +71,7 @@ void DestroyDebugUtilsMessengerEXT(
 class ExcalApplication {
 public:
   void run() {
-    window = excalSurface.initWindow(windowWidth, windowHeight);
+    window = Excal::Surface::initWindow(windowWidth, windowHeight);
     initVulkan();
     mainLoop();
     cleanup();
@@ -128,12 +128,6 @@ private:
   const uint32_t                 windowWidth  = 1440;
   const uint32_t                 windowHeight = 900;
 
-  Excal::Debug     excalDebug;
-  Excal::Surface   excalSurface;
-  Excal::Utils     excalUtils;
-  Excal::Device    excalDevice    = {&excalUtils};
-  Excal::Swapchain excalSwapchain = {&excalUtils};
-
   // Set by Excal::Surface
   GLFWwindow*    window;
   vk::SurfaceKHR surface;
@@ -163,11 +157,11 @@ private:
   #endif
 
   void initVulkan() {
-    const bool validationLayersSupported = excalDebug.checkValidationLayerSupport(); 
-    const auto validationLayers          = excalDebug.getValidationLayers();
-    const auto debugMessengerCreateInfo  = excalDebug.getDebugMessengerCreateInfo();
+    const bool validationLayersSupported = Excal::Debug::checkValidationLayerSupport(); 
+    const auto validationLayers          = Excal::Debug::getValidationLayers();
+    const auto debugMessengerCreateInfo  = Excal::Debug::getDebugMessengerCreateInfo();
 
-    instance = excalDevice.createInstance(
+    instance = Excal::Device::createInstance(
       validationLayersEnabled,
       validationLayersSupported,
       validationLayers,
@@ -176,17 +170,17 @@ private:
 
     setupDebugMessenger(instance, validationLayersEnabled, debugMessengerCreateInfo);
 
-    surface = excalSurface.createSurface(instance, window);
+    surface = Excal::Surface::createSurface(instance, window);
 
-    physicalDevice = excalDevice.pickPhysicalDevice(instance, surface);
-    device         = excalDevice.createLogicalDevice(physicalDevice, surface);
+    physicalDevice = Excal::Device::pickPhysicalDevice(instance, surface);
+    device         = Excal::Device::createLogicalDevice(physicalDevice, surface);
 
-    graphicsQueue = excalDevice.getGraphicsQueue(physicalDevice, device, surface);
-    presentQueue  = excalDevice.getPresentQueue(physicalDevice, device, surface);
-    msaaSamples   = excalDevice.getMaxUsableSampleCount(physicalDevice);
+    graphicsQueue = Excal::Device::getGraphicsQueue(physicalDevice, device, surface);
+    presentQueue  = Excal::Device::getPresentQueue(physicalDevice, device, surface);
+    msaaSamples   = Excal::Device::getMaxUsableSampleCount(physicalDevice);
 
     // Create swapchain and image views
-    auto swapchainState = excalSwapchain.createSwapchain(
+    auto swapchainState = Excal::Swapchain::createSwapchain(
       physicalDevice, device, surface, window
     );
 
@@ -195,7 +189,7 @@ private:
     swapchainExtent      = swapchainState.swapchainExtent;
 
     swapchainImages     = device.getSwapchainImagesKHR(swapchain);
-    swapchainImageViews = excalSwapchain.createImageViews(
+    swapchainImageViews = Excal::Swapchain::createImageViews(
       device, swapchainImages, swapchainImageFormat
     );
 
@@ -311,8 +305,8 @@ private:
     device.waitIdle();
 
     // TODO Member variables (swapchain, swapchainImages etc) should be reassigned here
-    excalSwapchain.createSwapchain(physicalDevice, device, surface, window);
-    excalSwapchain.createImageViews(device, swapchainImages, swapchainImageFormat);
+    Excal::Swapchain::createSwapchain(physicalDevice, device, surface, window);
+    Excal::Swapchain::createImageViews(device, swapchainImages, swapchainImageFormat);
     createRenderPass();
     createGraphicsPipeline();
     createColorResources();
@@ -538,7 +532,7 @@ private:
   }
 
   void createCommandPool() {
-    QueueFamilyIndices queueFamilyIndices = excalUtils.findQueueFamilies(physicalDevice, surface);
+    QueueFamilyIndices queueFamilyIndices = Excal::Utils::findQueueFamilies(physicalDevice, surface);
 
     commandPool = device.createCommandPool(
       vk::CommandPoolCreateInfo({}, queueFamilyIndices.graphicsFamily.value())
@@ -819,7 +813,7 @@ private:
   }
 
   void createTextureImageView() {
-    textureImageView = excalUtils.createImageView(
+    textureImageView = Excal::Utils::createImageView(
       device, textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor
     );
   }
@@ -1175,7 +1169,7 @@ private:
       colorImage, colorImageMemory
     );
 
-    colorImageView = excalUtils.createImageView(
+    colorImageView = Excal::Utils::createImageView(
       device, colorImage, colorFormat, vk::ImageAspectFlagBits::eColor
     );
   }
@@ -1193,7 +1187,7 @@ private:
       depthImage, depthImageMemory
     );
 
-    depthImageView = excalUtils.createImageView(
+    depthImageView = Excal::Utils::createImageView(
       device, depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth
     );
   }

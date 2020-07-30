@@ -3,11 +3,9 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-namespace Excal
+namespace Excal::Surface
 {
-Surface::Surface() {}
-
-GLFWwindow* Surface::initWindow(
+GLFWwindow* initWindow(
   const uint32_t windowWidth,
   const uint32_t windowHeight
 ) {
@@ -19,7 +17,7 @@ GLFWwindow* Surface::initWindow(
   //glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
 
-vk::SurfaceKHR Surface::createSurface(
+vk::SurfaceKHR createSurface(
   const vk::Instance& instance,
   GLFWwindow* window
 ) {
@@ -36,7 +34,7 @@ vk::SurfaceKHR Surface::createSurface(
 // TODO Figure out how to pass the type ExcalApplication in
 //      and re-enable framebufferResizeCallback
 /*
-void Surface::framebufferResizeCallback(GLFWwindow* window, int width, int height)
+void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
   auto app = static_cast<ExcalApplication*>(glfwGetWindowUserPointer(window));
   app->framebufferResized = true;
