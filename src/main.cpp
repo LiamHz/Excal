@@ -31,6 +31,7 @@
 #include "swapchain.h"
 #include "sync.h"
 #include "model.h"
+#include "buffer.h"
 
 const std::string TEXTURE_PATH = "../textures/ivysaur_diffuse.jpg";
 
@@ -87,16 +88,6 @@ private:
   vk::CommandPool                commandPool;
   std::vector<vk::CommandBuffer> commandBuffers;
 
-  std::vector<vk::Semaphore>     imageAvailableSemaphores;
-  std::vector<vk::Semaphore>     renderFinishedSemaphores;
-  std::vector<vk::Fence>         inFlightFences;
-  std::vector<vk::Fence>         imagesInFlight;
-
-  vk::Buffer                     indexBuffer;
-  vk::Buffer                     vertexBuffer;
-  vk::DeviceMemory               indexBufferMemory;
-  vk::DeviceMemory               vertexBufferMemory;
-
   std::vector<vk::Buffer>        uniformBuffers;
   std::vector<vk::DeviceMemory>  uniformBuffersMemory;
 
@@ -138,13 +129,25 @@ private:
   vk::SampleCountFlagBits msaaSamples;
 
   // Set by Excal::Swapchain
-  vk::SwapchainKHR               swapchain;
-  vk::Format                     swapchainImageFormat;
-  vk::Extent2D                   swapchainExtent;
-  std::vector<vk::Image>         swapchainImages;
-  std::vector<vk::ImageView>     swapchainImageViews;
+  vk::SwapchainKHR           swapchain;
+  vk::Format                 swapchainImageFormat;
+  vk::Extent2D               swapchainExtent;
+  std::vector<vk::Image>     swapchainImages;
+  std::vector<vk::ImageView> swapchainImageViews;
 
   Excal::Model::ModelData modelData;
+
+  // Set by Excal::Sync
+  std::vector<vk::Semaphore> imageAvailableSemaphores;
+  std::vector<vk::Semaphore> renderFinishedSemaphores;
+  std::vector<vk::Fence>     inFlightFences;
+  std::vector<vk::Fence>     imagesInFlight;
+
+  // Set by Excal::Buffer
+  vk::Buffer       indexBuffer;
+  vk::Buffer       vertexBuffer;
+  vk::DeviceMemory indexBufferMemory;
+  vk::DeviceMemory vertexBufferMemory;
 
   //#define NDEBUG
   #ifdef NDEBUG
@@ -219,9 +222,30 @@ private:
 
     Excal::Model::loadModel(modelData,  "../models/ivysaur.obj");
 
-    createVertexBuffer(modelData.vertices);
-    createIndexBuffer(modelData.indices);
+    Excal::Buffer::createVkBuffer(
+      vertexBuffer,
+      vertexBufferMemory,
+      physicalDevice,
+      device,
+      modelData.vertices,
+      vk::BufferUsageFlagBits::eVertexBuffer,
+      commandPool,
+      graphicsQueue
+    );
+
+    Excal::Buffer::createVkBuffer(
+      indexBuffer,
+      indexBufferMemory,
+      physicalDevice,
+      device,
+      modelData.indices,
+      vk::BufferUsageFlagBits::eIndexBuffer,
+      commandPool,
+      graphicsQueue
+    );
+
     createUniformBuffers();
+
     createDescriptorPool();
     createDescriptorSets();
     createCommandBuffers(modelData.indices.size());
@@ -550,20 +574,6 @@ private:
     }
   }
 
-  uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) {
-    auto memProperties = physicalDevice.getMemoryProperties();
-
-    for (uint32_t i=0; i < memProperties.memoryTypeCount; i++) {
-      if (   typeFilter & (1 << i)
-          && (memProperties.memoryTypes[i].propertyFlags & properties) == properties
-      ) {
-        return i;
-      }
-    }
-
-    throw std::runtime_error("failed to find suitable memory type!");
-  }
-
   // Images can have different layouts that affect how the pixels are stored in memory
   // When performing operations on images, you want to transition the image
   // to a layout that is optimal for that operation's performance
@@ -571,7 +581,7 @@ private:
     vk::Image image, vk::Format format,
     vk::ImageLayout oldLayout, vk::ImageLayout newLayout
   ) {
-    auto cmd = beginSingleTimeCommands();
+    auto cmd = Excal::Buffer::beginSingleTimeCommands(device, commandPool);
 
     vk::PipelineStageFlagBits srcPipelineStage;
     vk::PipelineStageFlagBits dstPipelineStage;
@@ -616,62 +626,7 @@ private:
       1, &barrier
     );
 
-    endSingleTimeCommands(cmd);
-  }
-
-  void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) {
-    buffer = device.createBuffer(
-      vk::BufferCreateInfo({}, size, usage, vk::SharingMode::eExclusive)
-    );
-
-    auto memRequirements = device.getBufferMemoryRequirements(buffer);
-
-    bufferMemory = device.allocateMemory(
-      vk::MemoryAllocateInfo(
-        memRequirements.size,
-        findMemoryType(memRequirements.memoryTypeBits, properties)
-      )
-    );
-
-    device.bindBufferMemory(buffer, bufferMemory, 0);
-  }
-
-  vk::CommandBuffer beginSingleTimeCommands() {
-    auto commandBuffers = device.allocateCommandBuffers(
-      vk::CommandBufferAllocateInfo(commandPool, vk::CommandBufferLevel::ePrimary, 1)
-    );
-
-    vk::CommandBuffer& cmd = commandBuffers[0];
-
-    cmd.begin(
-      // eOneTimeSubmit specifies that each recording of the command buffer will
-      // only be submitted once, and then reset and recorded again between submissions
-      vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)
-    );
-
-    return cmd;
-  }
-
-  void endSingleTimeCommands(vk::CommandBuffer cmd) {
-    cmd.end();
-
-    vk::SubmitInfo submitInfo{};
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &cmd;
-
-    graphicsQueue.submit(1, &submitInfo, nullptr);
-    graphicsQueue.waitIdle();
-
-    device.freeCommandBuffers(commandPool, 1, &cmd);
-  }
-
-  void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size) {
-    auto cmd = beginSingleTimeCommands();
-
-    auto copyRegion = vk::BufferCopy(0, 0, size);
-    cmd.copyBuffer(srcBuffer, dstBuffer, 1, &copyRegion);
-
-    endSingleTimeCommands(cmd);
+    Excal::Buffer::endSingleTimeCommands(device, cmd, commandPool, graphicsQueue);
   }
 
   void copyBufferToImage(
@@ -679,7 +634,7 @@ private:
     vk::Image image,
     uint32_t width, uint32_t height
   ) {
-    auto cmd = beginSingleTimeCommands();
+    auto cmd = Excal::Buffer::beginSingleTimeCommands(device, commandPool);
 
     // Specify which part of the buffer is to be copied to which part of the image
     vk::BufferImageCopy copyRegion(
@@ -695,42 +650,7 @@ private:
       1, &copyRegion
     );
 
-    endSingleTimeCommands(cmd);
-  }
-
-  template <typename T>
-  void createVkBuffer(const std::vector<T>& data, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory, vk::BufferUsageFlagBits usage) {
-    vk::DeviceSize bufferSize = sizeof(data[0]) * data.size();
-
-    // Staging buffer is on the CPU
-    vk::Buffer stagingBuffer;
-    vk::DeviceMemory stagingBufferMemory;
-
-    createBuffer(
-      bufferSize,
-      vk::BufferUsageFlagBits::eTransferSrc,
-        vk::MemoryPropertyFlagBits::eHostVisible
-      | vk::MemoryPropertyFlagBits::eHostCoherent,
-      stagingBuffer, stagingBufferMemory
-    );
-
-    void* memData = device.mapMemory(stagingBufferMemory, 0, bufferSize);
-    memcpy(memData, data.data(), (size_t) bufferSize);
-    device.unmapMemory(stagingBufferMemory);
-
-    // Create buffer on the GPU
-    createBuffer(
-      bufferSize,
-      vk::BufferUsageFlagBits::eTransferDst | usage,
-      vk::MemoryPropertyFlagBits::eDeviceLocal,
-      buffer, bufferMemory
-    );
-
-    // Copy staging buffer to GPU buffer before creation is complete
-    copyBuffer(stagingBuffer, buffer, bufferSize);
-
-    device.destroyBuffer(stagingBuffer);
-    device.freeMemory(stagingBufferMemory);
+    Excal::Buffer::endSingleTimeCommands(device, cmd, commandPool, graphicsQueue);
   }
 
   void createImage(
@@ -757,7 +677,9 @@ private:
     imageMemory = device.allocateMemory(
       vk::MemoryAllocateInfo(
         memRequirements.size,
-        findMemoryType(memRequirements.memoryTypeBits, properties)
+        Excal::Utils::findMemoryType(
+          physicalDevice, memRequirements.memoryTypeBits, properties
+        )
       )
     );
 
@@ -782,12 +704,15 @@ private:
     vk::Buffer stagingBuffer;
     vk::DeviceMemory stagingBufferMemory;
 
-    createBuffer(
+    Excal::Buffer::createBuffer(
+      stagingBuffer,
+      stagingBufferMemory,
+      physicalDevice,
+      device,
       imageSize,
       vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible
-      | vk::MemoryPropertyFlagBits::eHostCoherent,
-      stagingBuffer, stagingBufferMemory
+      | vk::MemoryPropertyFlagBits::eHostCoherent
     );
 
     void* data = device.mapMemory(stagingBufferMemory, 0, imageSize);
@@ -846,20 +771,6 @@ private:
         VK_FALSE, vk::CompareOp::eAlways,
         0.0f, 0.0f
       )
-    );
-  }
-
-  void createVertexBuffer(const std::vector<Vertex>& vertices) {
-    createVkBuffer<Vertex>(
-      vertices, vertexBuffer, vertexBufferMemory,
-      vk::BufferUsageFlagBits::eVertexBuffer
-    );
-  }
-
-  void createIndexBuffer(const std::vector<uint32_t>& indices) {
-    createVkBuffer<uint32_t>(
-      indices, indexBuffer, indexBufferMemory,
-      vk::BufferUsageFlagBits::eIndexBuffer
     );
   }
 
@@ -939,12 +850,15 @@ private:
     uniformBuffersMemory.resize(swapchainImages.size());
 
     for (size_t i=0; i < swapchainImages.size(); i++) {
-      createBuffer(
+      Excal::Buffer::createBuffer(
+        uniformBuffers[i],
+        uniformBuffersMemory[i],
+        physicalDevice,
+        device,
         bufferSize,
         vk::BufferUsageFlagBits::eUniformBuffer,
           vk::MemoryPropertyFlagBits::eHostVisible
-        | vk::MemoryPropertyFlagBits::eHostCoherent,
-        uniformBuffers[i], uniformBuffersMemory[i]
+        | vk::MemoryPropertyFlagBits::eHostCoherent
       );
     }
   }

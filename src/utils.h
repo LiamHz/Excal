@@ -22,4 +22,10 @@ vk::ImageView createImageView(
   const vk::Format&,
   const vk::ImageAspectFlags&
 );
+
+uint32_t findMemoryType(
+  const vk::PhysicalDevice&      physicalDevice,
+  const uint32_t                 typeFilter,
+  const vk::MemoryPropertyFlags& properties
+);
 }
