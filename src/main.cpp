@@ -33,8 +33,7 @@
 #include "surface.h"
 #include "debug.h"
 #include "swapchain.h"
-
-const int MAX_FRAMES_IN_FLIGHT = 2;
+#include "sync.h"
 
 const std::string MODEL_PATH = "../models/ivysaur.obj";
 const std::string TEXTURE_PATH = "../textures/ivysaur_diffuse.jpg";
@@ -128,6 +127,8 @@ private:
   const uint32_t                 windowWidth  = 1440;
   const uint32_t                 windowHeight = 900;
 
+  const int maxFramesInFlight = 2;
+
   // Set by Excal::Surface
   GLFWwindow*    window;
   vk::SurfaceKHR surface;
@@ -193,6 +194,14 @@ private:
       device, swapchainImages, swapchainImageFormat
     );
 
+    auto semaphores = Excal::Sync::createSemaphores(device, maxFramesInFlight);
+    imageAvailableSemaphores = semaphores.imageAvailableSemaphores;
+    renderFinishedSemaphores = semaphores.renderFinishedSemaphores;
+
+    auto fences = Excal::Sync::createFences(device, maxFramesInFlight);
+    inFlightFences = fences.inFlightFences;
+    imagesInFlight = fences.imagesInFlight;
+
     createRenderPass();
     createDescriptorSetLayout();
     createGraphicsPipeline();
@@ -210,7 +219,6 @@ private:
     createDescriptorPool();
     createDescriptorSets();
     createCommandBuffers();
-    createSyncObjects();
   }
 
   void mainLoop() {
@@ -225,7 +233,7 @@ private:
   void cleanup() {
     cleanupSwapChain();
 
-    for (size_t i=0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    for (size_t i=0; i < maxFramesInFlight; i++) {
       device.destroySemaphore(imageAvailableSemaphores[i]);
       device.destroySemaphore(renderFinishedSemaphores[i]);
       device.destroyFence(inFlightFences[i]);
@@ -1078,24 +1086,6 @@ private:
     }
   }
 
-  void createSyncObjects() {
-    imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-    imagesInFlight.resize(swapchainImages.size());
-
-    for (size_t i=0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-      imageAvailableSemaphores[i]
-        = device.createSemaphore(vk::SemaphoreCreateInfo(), nullptr);
-
-      renderFinishedSemaphores[i]
-        = device.createSemaphore(vk::SemaphoreCreateInfo(), nullptr);
-
-      inFlightFences[i]
-        = device.createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled), nullptr);
-    }
-  }
-
   void drawFrame() {
     device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
@@ -1152,7 +1142,7 @@ private:
       return;
     }
 
-    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    currentFrame = (currentFrame + 1) % maxFramesInFlight;
   }
 
   void createColorResources() {
