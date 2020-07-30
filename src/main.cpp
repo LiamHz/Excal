@@ -11,9 +11,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-
 #include <vulkan/vulkan.hpp>
 
 #include <chrono>
@@ -25,7 +22,6 @@
 #include <cstring>
 #include <vector>
 #include <array>
-#include <unordered_map>
 
 #include "structs.h"
 #include "utils.h"
@@ -34,8 +30,8 @@
 #include "debug.h"
 #include "swapchain.h"
 #include "sync.h"
+#include "model.h"
 
-const std::string MODEL_PATH = "../models/ivysaur.obj";
 const std::string TEXTURE_PATH = "../textures/ivysaur_diffuse.jpg";
 
 // Create VkDebugUtilsMessengerEXT object
@@ -96,8 +92,6 @@ private:
   std::vector<vk::Fence>         inFlightFences;
   std::vector<vk::Fence>         imagesInFlight;
 
-  std::vector<uint32_t>          indices;
-  std::vector<Vertex>            vertices;
   vk::Buffer                     indexBuffer;
   vk::Buffer                     vertexBuffer;
   vk::DeviceMemory               indexBufferMemory;
@@ -149,6 +143,8 @@ private:
   vk::Extent2D                   swapchainExtent;
   std::vector<vk::Image>         swapchainImages;
   std::vector<vk::ImageView>     swapchainImageViews;
+
+  Excal::Model::ModelData modelData;
 
   //#define NDEBUG
   #ifdef NDEBUG
@@ -211,20 +207,24 @@ private:
     createRenderPass();
     createDescriptorSetLayout();
     createGraphicsPipeline();
-    createCommandPool();
+    commandPool = device.createCommandPool(
+      vk::CommandPoolCreateInfo({}, queueFamilyIndices.graphicsFamily.value())
+    );
     createColorResources();
     createDepthResources();
     createFramebuffers();
     createTextureImage();
     createTextureImageView();
     createTextureImageSampler();
-    loadModel();
-    createVertexBuffer();
-    createIndexBuffer();
+
+    Excal::Model::loadModel(modelData,  "../models/ivysaur.obj");
+
+    createVertexBuffer(modelData.vertices);
+    createIndexBuffer(modelData.indices);
     createUniformBuffers();
     createDescriptorPool();
     createDescriptorSets();
-    createCommandBuffers();
+    createCommandBuffers(modelData.indices.size());
   }
 
   void mainLoop() {
@@ -333,7 +333,7 @@ private:
     createFramebuffers();
     createUniformBuffers();
     createDescriptorPool();
-    createCommandBuffers();
+    createCommandBuffers(modelData.indices.size());
   }
 
   void createRenderPass() {
@@ -548,14 +548,6 @@ private:
         )
       );
     }
-  }
-
-  void createCommandPool() {
-    QueueFamilyIndices queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
-
-    commandPool = device.createCommandPool(
-      vk::CommandPoolCreateInfo({}, queueFamilyIndices.graphicsFamily.value())
-    );
   }
 
   uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) {
@@ -857,61 +849,14 @@ private:
     );
   }
 
-  void loadModel() {
-    tinyobj::attrib_t attrib;  // Holds positions, normals, and texture coordinates
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warn, err;
-
-    if (!tinyobj::LoadObj(
-          &attrib, &shapes, &materials,
-          &warn, &err,
-          MODEL_PATH.c_str()
-        )
-    ) {
-      throw std::runtime_error(warn + err);
-    }
-
-    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-
-    // Iterate over the shapes vertices and add them to the
-    // class memember `vertices` vector
-    for (const auto& shape : shapes) {
-      for (const auto& index : shape.mesh.indices) {
-        Vertex vertex{};
-
-        // Load arrays of floats into vectors
-        vertex.pos = {
-          attrib.vertices[3 * index.vertex_index + 0],
-          attrib.vertices[3 * index.vertex_index + 1],
-          attrib.vertices[3 * index.vertex_index + 2]
-        };
-
-        vertex.texCoord = {
-              attrib.texcoords[2 * index.texcoord_index + 0],
-          1.0-attrib.texcoords[2 * index.texcoord_index + 1] // Flip vertical coordinate
-        };
-
-        vertex.color = {1.0f, 1.0f, 1.0f};
-
-        if (uniqueVertices.count(vertex) == 0) {
-          uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-          vertices.push_back(vertex);
-        }
-
-        indices.push_back(uniqueVertices[vertex]);
-      }
-    }
-  }
-
-  void createVertexBuffer() {
+  void createVertexBuffer(const std::vector<Vertex>& vertices) {
     createVkBuffer<Vertex>(
       vertices, vertexBuffer, vertexBufferMemory,
       vk::BufferUsageFlagBits::eVertexBuffer
     );
   }
 
-  void createIndexBuffer() {
+  void createIndexBuffer(const std::vector<uint32_t>& indices) {
     createVkBuffer<uint32_t>(
       indices, indexBuffer, indexBufferMemory,
       vk::BufferUsageFlagBits::eIndexBuffer
@@ -1047,7 +992,7 @@ private:
     device.unmapMemory(uniformBuffersMemory[currentImage]);
   }
 
-  void createCommandBuffers() {
+  void createCommandBuffers(uint32_t nIndices) {
     commandBuffers.resize(swapchainFramebuffers.size());
 
     commandBuffers = device.allocateCommandBuffers(
@@ -1090,7 +1035,7 @@ private:
         &descriptorSets[i], 0, nullptr
       );
 
-      cmd.drawIndexed(indices.size(), 1, 0, 0, 0);
+      cmd.drawIndexed(nIndices, 1, 0, 0, 0);
 
       cmd.endRenderPass();
       cmd.end();
