@@ -11,7 +11,6 @@
 #include <vulkan/vulkan.hpp>
 
 #include <chrono>
-#include <fstream>
 #include <algorithm>
 #include <stdexcept>
 #include <cstdlib>
@@ -29,8 +28,7 @@
 #include "model.h"
 #include "buffer.h"
 #include "image.h"
-
-const std::string TEXTURE_PATH = "../textures/ivysaur_diffuse.jpg";
+#include "pipeline.h"
 
 class ExcalApplication {
 public:
@@ -58,12 +56,6 @@ private:
   std::vector<vk::Buffer>        uniformBuffers;
   std::vector<vk::DeviceMemory>  uniformBuffersMemory;
 
-  Excal::Image::ImageResources   textureResources;
-  vk::Sampler                    textureSampler;
-
-  // Render target
-  Excal::Image::ImageResources   colorResources;
-  Excal::Image::ImageResources   depthResources;
   std::vector<VkFramebuffer>     swapchainFramebuffers;
 
   size_t                         currentFrame = 0;
@@ -108,6 +100,13 @@ private:
   vk::Buffer       vertexBuffer;
   vk::DeviceMemory indexBufferMemory;
   vk::DeviceMemory vertexBufferMemory;
+
+  // Set by Excal::Image
+  vk::Sampler                  textureSampler;
+  vk::Format                   depthFormat;
+  Excal::Image::ImageResources textureResources;
+  Excal::Image::ImageResources colorResources;
+  Excal::Image::ImageResources depthResources;
 
   //#define NDEBUG
   #ifdef NDEBUG
@@ -173,9 +172,32 @@ private:
       ));
     }
 
-    createRenderPass();
+    depthFormat = Excal::Image::findDepthFormat(physicalDevice);
+
+    renderPass = Excal::Pipeline::createRenderPass(
+      device,
+      depthFormat,
+      swapchainImageFormat,
+      msaaSamples
+    );
+
     createDescriptorSetLayout();
-    createGraphicsPipeline();
+
+    // TODO Fill in the create info
+    pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
+
+    pipelineLayout = device.createPipelineLayout(
+      vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 0, nullptr)
+    );
+
+    graphicsPipeline = Excal::Pipeline::createGraphicsPipeline(
+      device,
+      pipelineLayout,
+      pipelineCache,
+      renderPass,
+      swapchainExtent,
+      msaaSamples
+    );
 
     commandPool = device.createCommandPool(
       vk::CommandPoolCreateInfo({}, queueFamilyIndices.graphicsFamily.value())
@@ -194,6 +216,7 @@ private:
       depthResources,
       physicalDevice,
       device,
+      depthFormat,
       swapchainImageFormat,
       swapchainExtent,
       msaaSamples
@@ -201,13 +224,14 @@ private:
 
     createFramebuffers(colorResources.imageView, depthResources.imageView);
 
+    const std::string texturePath = "../textures/ivysaur_diffuse.jpg";
     Excal::Image::createTextureResources(
       textureResources,
       physicalDevice,
       device,
       commandPool,
       graphicsQueue,
-      TEXTURE_PATH
+      texturePath
     );
 
     textureSampler = Excal::Image::createTextureImageSampler(
@@ -347,8 +371,6 @@ private:
       queueFamilyIndices
     );
     Excal::Image::createImageViews(device, swapchainImages, swapchainImageFormat);
-    createRenderPass();
-    createGraphicsPipeline();
 
     // Resource creation
     Excal::Image::createColorResources(
@@ -364,6 +386,7 @@ private:
       depthResources,
       physicalDevice,
       device,
+      depthFormat,
       swapchainImageFormat,
       swapchainExtent,
       msaaSamples
@@ -373,83 +396,6 @@ private:
     createUniformBuffers();
     createDescriptorPool();
     createCommandBuffers(modelData.indices.size());
-  }
-
-  void createRenderPass() {
-    vk::AttachmentDescription colorAttachment(
-      {}, swapchainImageFormat,
-      msaaSamples,
-      vk::AttachmentLoadOp::eClear,
-      vk::AttachmentStoreOp::eStore,
-      vk::AttachmentLoadOp::eDontCare,
-      vk::AttachmentStoreOp::eDontCare,
-      vk::ImageLayout::eUndefined,
-      vk::ImageLayout::eColorAttachmentOptimal
-    );
-
-    vk::AttachmentDescription depthAttachment(
-      {}, Excal::Image::findDepthFormat(physicalDevice),
-      msaaSamples,
-      vk::AttachmentLoadOp::eClear,
-      vk::AttachmentStoreOp::eDontCare,
-      vk::AttachmentLoadOp::eDontCare,
-      vk::AttachmentStoreOp::eDontCare,
-      vk::ImageLayout::eUndefined,
-      vk::ImageLayout::eDepthStencilAttachmentOptimal
-    );
-
-    // Resolve the multiple fragments per pixel created via MSAA
-    vk::AttachmentDescription colorAttachmentResolve(
-      {}, swapchainImageFormat,
-      vk::SampleCountFlagBits::e1,
-      vk::AttachmentLoadOp::eDontCare,
-      vk::AttachmentStoreOp::eStore,
-      vk::AttachmentLoadOp::eDontCare,
-      vk::AttachmentStoreOp::eDontCare,
-      vk::ImageLayout::eUndefined,
-      vk::ImageLayout::ePresentSrcKHR
-    );
-
-    vk::AttachmentReference colorAttachmentRef(
-      0, vk::ImageLayout::eColorAttachmentOptimal
-    );
-
-    vk::AttachmentReference depthAttachmentRef(
-      1, vk::ImageLayout::eDepthStencilAttachmentOptimal
-    );
-
-    vk::AttachmentReference colorAttachmentResolveRef(
-      2, vk::ImageLayout::eColorAttachmentOptimal
-    );
-
-    vk::SubpassDescription subpass(
-      {}, vk::PipelineBindPoint::eGraphics, 0,
-      nullptr, 1,
-      &colorAttachmentRef,
-      &colorAttachmentResolveRef,
-      &depthAttachmentRef
-    );
-
-    vk::SubpassDependency dependency(
-      VK_SUBPASS_EXTERNAL, 0,
-      vk::PipelineStageFlagBits::eColorAttachmentOutput,
-      vk::PipelineStageFlagBits::eColorAttachmentOutput,
-      vk::AccessFlagBits::eColorAttachmentWrite,
-      vk::AccessFlagBits::eColorAttachmentWrite
-    );
-
-    std::array<vk::AttachmentDescription, 3> attachments = {
-      colorAttachment,
-      depthAttachment,
-      colorAttachmentResolve
-    };
-
-    renderPass = device.createRenderPass(
-      vk::RenderPassCreateInfo(
-        {}, attachments.size(), attachments.data(),
-        1, &subpass, 1, &dependency
-      )
-    );
   }
 
   void createDescriptorSetLayout() {
@@ -471,102 +417,6 @@ private:
    descriptorSetLayout = device.createDescriptorSetLayout(
      vk::DescriptorSetLayoutCreateInfo({}, bindings.size(), bindings.data())
    );
-  }
-
-  void createGraphicsPipeline() {
-    auto vertShaderCode = readFile("../shaders/shader.vert.spv");
-    auto fragShaderCode = readFile("../shaders/shader.frag.spv");
-
-    auto vertShaderModule = createShaderModule(vertShaderCode);
-    auto fragShaderModule = createShaderModule(fragShaderCode);
-
-    std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = {
-      vk::PipelineShaderStageCreateInfo(
-        {}, vk::ShaderStageFlagBits::eVertex, vertShaderModule, "main"
-      ),
-      vk::PipelineShaderStageCreateInfo(
-        {}, vk::ShaderStageFlagBits::eFragment, fragShaderModule, "main"
-      )
-    };
-
-    // Fixed functions of graphics pipeline
-    vk::Viewport viewport(
-      0.0f, 0.0f,
-      (float) swapchainExtent.width, (float) swapchainExtent.height,
-      0.0f, 1.0f
-    );
-    vk::Rect2D scissor({0, 0}, swapchainExtent);
-
-    vk::PipelineViewportStateCreateInfo viewportState({}, 1, &viewport, 1, &scissor);
-
-    vk::PipelineInputAssemblyStateCreateInfo inputAssembly(
-      {}, vk::PrimitiveTopology::eTriangleList, VK_FALSE
-    );
-
-    auto bindingDescription    = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
-
-    vk::PipelineVertexInputStateCreateInfo vertexInputInfo(
-      {}, 1, &bindingDescription,
-      attributeDescriptions.size(),
-      attributeDescriptions.data()
-    );
-
-    vk::PipelineRasterizationStateCreateInfo rasterizer(
-      {}, VK_FALSE, VK_FALSE,
-      vk::PolygonMode::eFill, vk::CullModeFlagBits::eBack,
-      vk::FrontFace::eCounterClockwise, VK_FALSE
-    );
-    rasterizer.lineWidth = 1.0f;
-
-    vk::PipelineMultisampleStateCreateInfo multisampling(
-      {}, msaaSamples,
-      VK_FALSE, 1.0f, // Disable sample shading
-      nullptr,
-      VK_FALSE, VK_FALSE
-    );
-
-    vk::PipelineDepthStencilStateCreateInfo depthStencil(
-      {}, VK_TRUE, VK_TRUE,
-      vk::CompareOp::eLess,
-      VK_FALSE, // depthBoundsTestEnable
-      VK_FALSE  // stencilTestEnable
-    );
-
-    vk::PipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR
-                                        | vk::ColorComponentFlagBits::eG
-                                        | vk::ColorComponentFlagBits::eB
-                                        | vk::ColorComponentFlagBits::eA;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-
-    vk::PipelineColorBlendStateCreateInfo colorBlending(
-      {}, VK_FALSE, vk::LogicOp::eClear, 1, &colorBlendAttachment
-    );
-
-    pipelineLayout = device.createPipelineLayout(
-      vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 0, nullptr)
-    );
-
-    pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
-
-    // Combine above structs to create graphics pipeline
-    graphicsPipeline = device.createGraphicsPipeline(
-      pipelineCache,
-      vk::GraphicsPipelineCreateInfo(
-        {},               shaderStages.size(), shaderStages.data(),
-        &vertexInputInfo, &inputAssembly,      nullptr,
-        &viewportState,   &rasterizer,         &multisampling,
-        &depthStencil,    &colorBlending,      nullptr,
-        pipelineLayout,   renderPass,          0
-      )
-    ).value;
-    // Calling `.value` is a workaround for a known issue
-    // Should be resolved after pull request #678 gets merged
-    // https://github.com/KhronosGroup/Vulkan-Hpp/pull/678
-
-    device.destroyShaderModule(vertShaderModule);
-    device.destroyShaderModule(fragShaderModule);
   }
 
   void createFramebuffers(
@@ -831,36 +681,6 @@ private:
     }
 
     currentFrame = (currentFrame + 1) % maxFramesInFlight;
-  }
-
-  bool hasStencilComponent(vk::Format format) {
-    return format == vk::Format::eD32SfloatS8Uint
-        || format == vk::Format::eD24UnormS8Uint;
-  }
-
-  static std::vector<char> readFile(const std::string& filename) {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-    if (!file.is_open()) {
-      throw std::runtime_error("failed to open file!");
-    }
-
-    size_t fileSize = (size_t) file.tellg();
-    std::vector<char> buffer(fileSize);
-
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-
-    return buffer;
-  }
-
-  vk::ShaderModule createShaderModule(const std::vector<char>& code) {
-    return device.createShaderModule(
-      vk::ShaderModuleCreateInfo(
-        {}, code.size(), reinterpret_cast<const uint32_t*>(code.data())
-      )
-    );
   }
 };
 

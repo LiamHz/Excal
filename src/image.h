@@ -68,6 +68,7 @@ void createDepthResources(
   ImageResources&                depthResources,
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
+  const vk::Format&              depthFormat,
   const vk::Format&              swapchainImageFormat,
   const vk::Extent2D&            swapchainExtent,
   const vk::SampleCountFlagBits& msaaSamples
