@@ -9,8 +9,6 @@
 
 namespace Excal::Utils
 {
-std::vector<const char*> getRequiredExtensions(const bool validationLayersEnabled);
-
 SwapChainSupportDetails querySwapChainSupport(
   const vk::PhysicalDevice&,
   const vk::SurfaceKHR&

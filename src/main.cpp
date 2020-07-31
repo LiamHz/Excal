@@ -29,7 +29,6 @@
 #include "surface.h"
 #include "debug.h"
 #include "swapchain.h"
-#include "sync.h"
 #include "model.h"
 #include "buffer.h"
 
@@ -38,7 +37,6 @@ const std::string TEXTURE_PATH = "../textures/ivysaur_diffuse.jpg";
 class ExcalApplication {
 public:
   void run() {
-    window = Excal::Surface::initWindow(windowWidth, windowHeight);
     initVulkan();
     mainLoop();
     cleanup();
@@ -132,6 +130,8 @@ private:
     const auto validationLayers          = Excal::Debug::getValidationLayers();
     const auto debugMessengerCreateInfo  = Excal::Debug::getDebugMessengerCreateInfo();
 
+    window = Excal::Surface::initWindow(windowWidth, windowHeight);
+
     instance = Excal::Device::createInstance(
       validationLayersEnabled,
       validationLayersSupported,
@@ -145,7 +145,7 @@ private:
 
     surface = Excal::Surface::createSurface(instance, window);
 
-    physicalDevice = Excal::Device::pickPhysicalDevice(instance, surface);
+    physicalDevice          = Excal::Device::pickPhysicalDevice(instance, surface);
     auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
 
     device = Excal::Device::createLogicalDevice(physicalDevice, queueFamilyIndices);
@@ -165,20 +165,22 @@ private:
     swapchain            = swapchainState.swapchain;
     swapchainImageFormat = swapchainState.swapchainImageFormat;
     swapchainExtent      = swapchainState.swapchainExtent;
-
-    swapchainImages     = device.getSwapchainImagesKHR(swapchain);
+    swapchainImages      = device.getSwapchainImagesKHR(swapchain);
 
     swapchainImageViews = Excal::Swapchain::createImageViews(
       device, swapchainImages, swapchainImageFormat
     );
 
-    auto semaphores = Excal::Sync::createSemaphores(device, maxFramesInFlight);
-    imageAvailableSemaphores = semaphores.imageAvailableSemaphores;
-    renderFinishedSemaphores = semaphores.renderFinishedSemaphores;
-
-    auto fences = Excal::Sync::createFences(device, maxFramesInFlight);
-    inFlightFences = fences.inFlightFences;
-    imagesInFlight = fences.imagesInFlight;
+    // Create sync objects for each frame in flight
+    imagesInFlight.resize(maxFramesInFlight);
+    for (int i=0; i < maxFramesInFlight; i++)
+    {
+      imageAvailableSemaphores.push_back(device.createSemaphore({}, nullptr));
+      renderFinishedSemaphores.push_back(device.createSemaphore({}, nullptr));
+      inFlightFences.push_back(device.createFence(
+        vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled), nullptr
+      ));
+    }
 
     createRenderPass();
     createDescriptorSetLayout();

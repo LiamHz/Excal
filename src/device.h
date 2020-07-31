@@ -17,6 +17,7 @@ vk::PhysicalDevice pickPhysicalDevice(const vk::Instance&, const vk::SurfaceKHR&
 QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
 vk::Device createLogicalDevice(const vk::PhysicalDevice&, const QueueFamilyIndices&);
 
+std::vector<const char*> getRequiredExtensions(const bool validationLayersEnabled);
 std::vector<const char*> getDeviceExtensions();
 bool checkDeviceExtensionSupport(const vk::PhysicalDevice& physicalDevice);
 

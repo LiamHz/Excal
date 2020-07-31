@@ -22,7 +22,7 @@ vk::Instance createInstance(
   vk::ApplicationInfo appInfo("Excal Test", 1, "Excal", 1, VK_API_VERSION_1_2);
 
   // Specify which global extensions to use
-  auto extensions = Excal::Utils::getRequiredExtensions(validationLayersEnabled);
+  auto extensions = getRequiredExtensions(validationLayersEnabled);
 
   vk::InstanceCreateInfo createInfo(vk::InstanceCreateFlags(), &appInfo);
   createInfo.enabledExtensionCount   = extensions.size();
@@ -45,8 +45,8 @@ vk::Instance createInstance(
 }
 
 vk::PhysicalDevice pickPhysicalDevice(
-  const vk::Instance&   instance,
-  const vk::SurfaceKHR& surface
+const vk::Instance&   instance,
+const vk::SurfaceKHR& surface
 ) {
   auto physicalDevices = instance.enumeratePhysicalDevices();
 
@@ -179,6 +179,25 @@ int rateDeviceSuitability(
   }
 
   return score;
+}
+
+std::vector<const char*> getRequiredExtensions(
+  const bool validationLayersEnabled
+) {
+  uint32_t glfwExtensionCount = 0;
+  const char** glfwExtensions;
+  glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+  std::vector<const char*> extensions(
+    glfwExtensions, glfwExtensions + glfwExtensionCount
+  );
+
+  if (validationLayersEnabled)
+  {
+    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+  }
+
+  return extensions;
 }
 
 std::vector<const char*> getDeviceExtensions() {

@@ -10,24 +10,6 @@
 
 namespace Excal::Utils
 {
-std::vector<const char*> getRequiredExtensions(
-  const bool validationLayersEnabled
-) {
-  uint32_t glfwExtensionCount = 0;
-  const char** glfwExtensions;
-  glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-  std::vector<const char*> extensions(
-    glfwExtensions, glfwExtensions + glfwExtensionCount
-  );
-
-  if (validationLayersEnabled)
-  {
-    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-  }
-
-  return extensions;
-}
 
 SwapChainSupportDetails querySwapChainSupport(
   const vk::PhysicalDevice& physicalDevice,
