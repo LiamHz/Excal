@@ -8,9 +8,6 @@
 #include <glm/gtx/hash.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 #include <vulkan/vulkan.hpp>
 
 #include <chrono>
@@ -31,6 +28,7 @@
 #include "swapchain.h"
 #include "model.h"
 #include "buffer.h"
+#include "image.h"
 
 const std::string TEXTURE_PATH = "../textures/ivysaur_diffuse.jpg";
 
@@ -60,19 +58,12 @@ private:
   std::vector<vk::Buffer>        uniformBuffers;
   std::vector<vk::DeviceMemory>  uniformBuffersMemory;
 
-  vk::Image                      textureImage;
-  vk::DeviceMemory               textureImageMemory;
-  vk::ImageView                  textureImageView;
+  Excal::Image::ImageResources   textureResources;
   vk::Sampler                    textureSampler;
 
-  vk::Image                      depthImage;
-  vk::DeviceMemory               depthImageMemory;
-  vk::ImageView                  depthImageView;
-
   // Render target
-  vk::Image                      colorImage;
-  vk::DeviceMemory               colorImageMemory;
-  vk::ImageView                  colorImageView;
+  Excal::Image::ImageResources   colorResources;
+  Excal::Image::ImageResources   depthResources;
   std::vector<VkFramebuffer>     swapchainFramebuffers;
 
   size_t                         currentFrame = 0;
@@ -153,7 +144,7 @@ private:
     graphicsQueue = device.getQueue(queueFamilyIndices.graphicsFamily.value(), 0);
     presentQueue  = device.getQueue(queueFamilyIndices.presentFamily.value(), 0);
 
-    msaaSamples   = Excal::Device::getMaxUsableSampleCount(physicalDevice);
+    msaaSamples = Excal::Device::getMaxUsableSampleCount(physicalDevice);
 
     // Create swapchain and image views
     auto swapchainState = Excal::Swapchain::createSwapchain(
@@ -167,7 +158,7 @@ private:
     swapchainExtent      = swapchainState.swapchainExtent;
     swapchainImages      = device.getSwapchainImagesKHR(swapchain);
 
-    swapchainImageViews = Excal::Swapchain::createImageViews(
+    swapchainImageViews = Excal::Image::createImageViews(
       device, swapchainImages, swapchainImageFormat
     );
 
@@ -185,15 +176,44 @@ private:
     createRenderPass();
     createDescriptorSetLayout();
     createGraphicsPipeline();
+
     commandPool = device.createCommandPool(
       vk::CommandPoolCreateInfo({}, queueFamilyIndices.graphicsFamily.value())
     );
-    createColorResources();
-    createDepthResources();
-    createFramebuffers();
-    createTextureImage();
-    createTextureImageView();
-    createTextureImageSampler();
+
+    Excal::Image::createColorResources(
+      colorResources,
+      physicalDevice,
+      device,
+      swapchainImageFormat,
+      swapchainExtent,
+      msaaSamples
+    );
+
+    Excal::Image::createDepthResources(
+      depthResources,
+      physicalDevice,
+      device,
+      swapchainImageFormat,
+      swapchainExtent,
+      msaaSamples
+    );
+
+    createFramebuffers(colorResources.imageView, depthResources.imageView);
+
+    Excal::Image::createTextureResources(
+      textureResources,
+      physicalDevice,
+      device,
+      commandPool,
+      graphicsQueue,
+      TEXTURE_PATH
+    );
+
+    textureSampler = Excal::Image::createTextureImageSampler(
+      device,
+      textureResources.image
+    );
 
     Excal::Model::loadModel(modelData,  "../models/ivysaur.obj");
 
@@ -253,9 +273,9 @@ private:
     device.freeMemory(vertexBufferMemory);
 
     device.destroySampler(textureSampler);
-    device.destroyImageView(textureImageView);
-    device.destroyImage(textureImage);
-    device.freeMemory(textureImageMemory);
+    device.destroyImageView(textureResources.imageView);
+    device.destroyImage(textureResources.image);
+    device.freeMemory(textureResources.imageMemory);
 
     device.destroyCommandPool(commandPool);
     device.destroy();
@@ -272,13 +292,13 @@ private:
   }
 
   void cleanupSwapChain() {
-    device.destroyImageView(colorImageView);
-    device.destroyImage(colorImage);
-    device.freeMemory(colorImageMemory);
+    device.destroyImageView(colorResources.imageView);
+    device.destroyImage(colorResources.image);
+    device.freeMemory(colorResources.imageMemory);
 
-    device.destroyImageView(depthImageView);
-    device.destroyImage(depthImage);
-    device.freeMemory(depthImageMemory);
+    device.destroyImageView(depthResources.imageView);
+    device.destroyImage(depthResources.image);
+    device.freeMemory(depthResources.imageMemory);
 
     for (auto framebuffer : swapchainFramebuffers) {
       device.destroyFramebuffer(framebuffer);
@@ -320,16 +340,36 @@ private:
     // TODO Member variables (swapchain, swapchainImages etc) should be reassigned here
     auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
     Excal::Swapchain::createSwapchain(
-      physicalDevice, device,
-      surface, window,
+      physicalDevice,
+      device,
+      surface,
+      window,
       queueFamilyIndices
     );
-    Excal::Swapchain::createImageViews(device, swapchainImages, swapchainImageFormat);
+    Excal::Image::createImageViews(device, swapchainImages, swapchainImageFormat);
     createRenderPass();
     createGraphicsPipeline();
-    createColorResources();
-    createDepthResources();
-    createFramebuffers();
+
+    // Resource creation
+    Excal::Image::createColorResources(
+      colorResources,
+      physicalDevice,
+      device,
+      swapchainImageFormat,
+      swapchainExtent,
+      msaaSamples
+    );
+
+    Excal::Image::createDepthResources(
+      depthResources,
+      physicalDevice,
+      device,
+      swapchainImageFormat,
+      swapchainExtent,
+      msaaSamples
+    );
+
+    createFramebuffers(colorResources.imageView, depthResources.imageView);
     createUniformBuffers();
     createDescriptorPool();
     createCommandBuffers(modelData.indices.size());
@@ -348,7 +388,7 @@ private:
     );
 
     vk::AttachmentDescription depthAttachment(
-      {}, findDepthFormat(),
+      {}, Excal::Image::findDepthFormat(physicalDevice),
       msaaSamples,
       vk::AttachmentLoadOp::eClear,
       vk::AttachmentStoreOp::eDontCare,
@@ -529,7 +569,10 @@ private:
     device.destroyShaderModule(fragShaderModule);
   }
 
-  void createFramebuffers() {
+  void createFramebuffers(
+    const vk::ImageView& colorImageView,
+    const vk::ImageView& depthImageView
+  ) {
     swapchainFramebuffers.resize(swapchainImageViews.size());
 
     for (size_t i=0; i < swapchainImageViews.size(); i++) {
@@ -547,206 +590,6 @@ private:
         )
       );
     }
-  }
-
-  // Images can have different layouts that affect how the pixels are stored in memory
-  // When performing operations on images, you want to transition the image
-  // to a layout that is optimal for that operation's performance
-  void transitionImageLayout(
-    vk::Image image, vk::Format format,
-    vk::ImageLayout oldLayout, vk::ImageLayout newLayout
-  ) {
-    auto cmd = Excal::Buffer::beginSingleTimeCommands(device, commandPool);
-
-    vk::PipelineStageFlagBits srcPipelineStage;
-    vk::PipelineStageFlagBits dstPipelineStage;
-
-    vk::AccessFlagBits srcAccessMask;
-    vk::AccessFlagBits dstAccessMask;
-
-    // Specify source and destination pipeline barriers
-    if (   oldLayout == vk::ImageLayout::eUndefined
-        && newLayout == vk::ImageLayout::eTransferDstOptimal
-    ) {
-      srcAccessMask = static_cast<vk::AccessFlagBits>(0);
-      dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-
-      srcPipelineStage = vk::PipelineStageFlagBits::eTopOfPipe;
-      dstPipelineStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal
-               && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal
-    ) {
-      srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-      dstAccessMask = vk::AccessFlagBits::eShaderRead;
-
-      srcPipelineStage = vk::PipelineStageFlagBits::eTransfer;
-      dstPipelineStage = vk::PipelineStageFlagBits::eFragmentShader;
-    } else {
-      throw std::invalid_argument("unsupported layout transition!");
-    }
-
-    vk::ImageMemoryBarrier barrier(
-      srcAccessMask, dstAccessMask,
-      oldLayout, newLayout,
-      VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-      image,
-      vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
-    );
-
-    cmd.pipelineBarrier(
-      srcPipelineStage, dstPipelineStage,
-      vk::DependencyFlagBits::eByRegion,
-      0, nullptr,
-      0, nullptr,
-      1, &barrier
-    );
-
-    Excal::Buffer::endSingleTimeCommands(device, cmd, commandPool, graphicsQueue);
-  }
-
-  void copyBufferToImage(
-    vk::Buffer buffer,
-    vk::Image image,
-    uint32_t width, uint32_t height
-  ) {
-    auto cmd = Excal::Buffer::beginSingleTimeCommands(device, commandPool);
-
-    // Specify which part of the buffer is to be copied to which part of the image
-    vk::BufferImageCopy copyRegion(
-      0, 0, 0,
-      vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
-      vk::Offset3D(0, 0, 0),
-      vk::Extent3D(width, height, 1)
-    );
-
-    cmd.copyBufferToImage(
-      buffer, image,
-      vk::ImageLayout::eTransferDstOptimal,
-      1, &copyRegion
-    );
-
-    Excal::Buffer::endSingleTimeCommands(device, cmd, commandPool, graphicsQueue);
-  }
-
-  void createImage(
-    uint32_t width, uint32_t height,
-    vk::SampleCountFlagBits numSamples,
-    vk::Format format,
-    vk::ImageTiling tiling,
-    vk::ImageUsageFlags usage,
-    vk::MemoryPropertyFlagBits properties,
-    vk::Image& image, vk::DeviceMemory& imageMemory
-  ) {
-    image = device.createImage(
-      vk::ImageCreateInfo(
-        {}, vk::ImageType::e2D, format,
-        vk::Extent3D(width, height, 1), 1, 1,
-        numSamples,
-        tiling, usage,
-        vk::SharingMode::eExclusive
-      )
-    );
-
-    auto memRequirements = device.getImageMemoryRequirements(image);
-
-    imageMemory = device.allocateMemory(
-      vk::MemoryAllocateInfo(
-        memRequirements.size,
-        Excal::Utils::findMemoryType(
-          physicalDevice, memRequirements.memoryTypeBits, properties
-        )
-      )
-    );
-
-    device.bindImageMemory(image, imageMemory, 0);
-  }
-
-  void createTextureImage() {
-    int texWidth, texHeight, texChannels;
-    stbi_uc* pixels = stbi_load(
-      TEXTURE_PATH.c_str(),
-      &texWidth, &texHeight, &texChannels,
-      STBI_rgb_alpha
-    );
-
-    vk::DeviceSize imageSize = texWidth * texHeight * 4;
-
-    if (!pixels) {
-      throw std::runtime_error("failed to load texture image!");
-    }
-
-    // Staging buffer is on the CPU
-    vk::Buffer stagingBuffer;
-    vk::DeviceMemory stagingBufferMemory;
-
-    Excal::Buffer::createBuffer(
-      stagingBuffer,
-      stagingBufferMemory,
-      physicalDevice,
-      device,
-      imageSize,
-      vk::BufferUsageFlagBits::eTransferSrc,
-        vk::MemoryPropertyFlagBits::eHostVisible
-      | vk::MemoryPropertyFlagBits::eHostCoherent
-    );
-
-    void* data = device.mapMemory(stagingBufferMemory, 0, imageSize);
-    memcpy(data, pixels, (size_t) imageSize);
-    device.unmapMemory(stagingBufferMemory);
-
-    stbi_image_free(pixels);
-
-    createImage(
-      texWidth, texHeight,
-      vk::SampleCountFlagBits::e1,  // TODO
-      vk::Format::eR8G8B8A8Srgb,
-      vk::ImageTiling::eOptimal,
-        vk::ImageUsageFlagBits::eTransferDst
-      | vk::ImageUsageFlagBits::eSampled,
-      vk::MemoryPropertyFlagBits::eDeviceLocal,
-      textureImage, textureImageMemory
-    );
-
-    transitionImageLayout(
-      textureImage, vk::Format::eR8G8B8A8Srgb,
-      vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal
-    );
-
-    copyBufferToImage(stagingBuffer, textureImage, texWidth, texHeight);
-
-    transitionImageLayout(
-      textureImage, vk::Format::eR8G8B8A8Srgb,
-      vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal
-    );
-
-    device.destroyBuffer(stagingBuffer);
-    device.freeMemory(stagingBufferMemory);
-  }
-
-  void createTextureImageView() {
-    textureImageView = Excal::Utils::createImageView(
-      device, textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor
-    );
-  }
-
-  void createTextureImageSampler() {
-    textureSampler = device.createSampler(
-      vk::SamplerCreateInfo(
-        // Specify how to interpolate texels that are
-        // magnified (oversampling) or minified (undersampling)
-        {}, vk::Filter::eLinear, vk::Filter::eLinear,
-        vk::SamplerMipmapMode::eLinear,
-        // Sampler address mode specifies how to
-        // read texels that are outside of the image
-        vk::SamplerAddressMode::eRepeat,
-        vk::SamplerAddressMode::eRepeat,
-        vk::SamplerAddressMode::eRepeat,
-        0.0f,
-        VK_TRUE, 16.0f, // Anisotropic filtering
-        VK_FALSE, vk::CompareOp::eAlways,
-        0.0f, 0.0f
-      )
-    );
   }
 
   void createDescriptorPool() {
@@ -789,7 +632,7 @@ private:
       );
 
       vk::DescriptorImageInfo imageInfo(
-        textureSampler, textureImageView,
+        textureSampler, textureResources.imageView,
         vk::ImageLayout::eShaderReadOnlyOptimal
       );
 
@@ -990,78 +833,9 @@ private:
     currentFrame = (currentFrame + 1) % maxFramesInFlight;
   }
 
-  void createColorResources() {
-    vk::Format colorFormat = swapchainImageFormat;
-
-    createImage(
-      swapchainExtent.width, swapchainExtent.height,
-      msaaSamples,
-      colorFormat,
-      vk::ImageTiling::eOptimal,
-        vk::ImageUsageFlagBits::eTransientAttachment
-      | vk::ImageUsageFlagBits::eColorAttachment,
-      vk::MemoryPropertyFlagBits::eDeviceLocal,
-      colorImage, colorImageMemory
-    );
-
-    colorImageView = Excal::Utils::createImageView(
-      device, colorImage, colorFormat, vk::ImageAspectFlagBits::eColor
-    );
-  }
-
-  void createDepthResources() {
-    auto depthFormat = findDepthFormat();
-
-    createImage(
-      swapchainExtent.width, swapchainExtent.height,
-      msaaSamples,
-      depthFormat,
-      vk::ImageTiling::eOptimal,
-      vk::ImageUsageFlagBits::eDepthStencilAttachment,
-      vk::MemoryPropertyFlagBits::eDeviceLocal,
-      depthImage, depthImageMemory
-    );
-
-    depthImageView = Excal::Utils::createImageView(
-      device, depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth
-    );
-  }
-
   bool hasStencilComponent(vk::Format format) {
     return format == vk::Format::eD32SfloatS8Uint
         || format == vk::Format::eD24UnormS8Uint;
-  }
-
-  vk::Format findSupportedFormat(
-    const std::vector<vk::Format>& candidates,
-    vk::ImageTiling tiling, vk::FormatFeatureFlags features
-  ) {
-    for (auto format : candidates) {
-      auto props = physicalDevice.getFormatProperties(format);
-
-      if (   tiling == vk::ImageTiling::eLinear
-          && (props.linearTilingFeatures & features) == features
-      ) {
-        return format;
-      } else if (   tiling == vk::ImageTiling::eOptimal
-                 && (props.optimalTilingFeatures & features) == features
-      ) {
-        return format;
-      }
-    }
-
-    throw std::runtime_error("failed to find supported format!");
-  }
-
-  vk::Format findDepthFormat() {
-    return findSupportedFormat(
-      {
-        vk::Format::eD32Sfloat,
-        vk::Format::eD32SfloatS8Uint,
-        vk::Format::eD24UnormS8Uint
-      }, vk::ImageTiling::eOptimal,
-      vk::FormatFeatureFlagBits::eDepthStencilAttachment
-    );
   }
 
   static std::vector<char> readFile(const std::string& filename) {

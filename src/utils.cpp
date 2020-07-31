@@ -23,23 +23,6 @@ SwapChainSupportDetails querySwapChainSupport(
   return details;
 }
 
-vk::ImageView createImageView(
-  const vk::Device&           device,
-  const vk::Image&            image,
-  const vk::Format&           format,
-  const vk::ImageAspectFlags& aspectFlags
-) {
-  auto imageView = device.createImageView(
-    vk::ImageViewCreateInfo(
-      {}, image, vk::ImageViewType::e2D, format,
-      vk::ComponentMapping(vk::ComponentSwizzle::eIdentity),
-      vk::ImageSubresourceRange(aspectFlags, 0, 1, 0, 1)
-    )
-  );
-
-  return imageView;
-}
-
 uint32_t findMemoryType(
   const vk::PhysicalDevice&      physicalDevice,
   const uint32_t                 typeFilter,

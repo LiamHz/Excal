@@ -14,13 +14,6 @@ SwapChainSupportDetails querySwapChainSupport(
   const vk::SurfaceKHR&
 );
 
-vk::ImageView createImageView(
-  const vk::Device&,
-  const vk::Image&,
-  const vk::Format&,
-  const vk::ImageAspectFlags&
-);
-
 uint32_t findMemoryType(
   const vk::PhysicalDevice&      physicalDevice,
   const uint32_t                 typeFilter,

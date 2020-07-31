@@ -24,12 +24,6 @@ SwapchainState createSwapchain(
   const QueueFamilyIndices&
 );
 
-std::vector<vk::ImageView> createImageViews(
-  const vk::Device&,
-  const std::vector<vk::Image>&,
-  const vk::Format&
-);
-
 vk::PresentModeKHR chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>&);
 vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR&, GLFWwindow*);
 vk::SurfaceFormatKHR chooseSwapSurfaceFormat(

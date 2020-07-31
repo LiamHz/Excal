@@ -60,23 +60,6 @@ Excal::Swapchain::SwapchainState createSwapchain(
   };
 }
 
-std::vector<vk::ImageView> createImageViews(
-  const vk::Device&             device,
-  const std::vector<vk::Image>& swapchainImages,
-  const vk::Format&             swapchainImageFormat
-) {
-  std::vector<vk::ImageView> swapchainImageViews;
-  swapchainImageViews.resize(swapchainImages.size());
-
-  for (size_t i=0; i < swapchainImages.size(); i++) {
-    swapchainImageViews[i] = Excal::Utils::createImageView(
-      device, swapchainImages[i], swapchainImageFormat, vk::ImageAspectFlagBits::eColor
-    );
-  }
-
-  return swapchainImageViews;
-}
-
 vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
   const std::vector<vk::SurfaceFormatKHR>& availableFormats
 ) {
