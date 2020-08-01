@@ -371,16 +371,24 @@ private:
 
     device.waitIdle();
 
-    // TODO Member variables (swapchain, swapchainImages etc) should be reassigned here
     auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
-    Excal::Swapchain::createSwapchain(
+
+    auto swapchainState = Excal::Swapchain::createSwapchain(
       physicalDevice,
       device,
       surface,
       window,
       queueFamilyIndices
     );
-    Excal::Image::createImageViews(device, swapchainImages, swapchainImageFormat);
+
+    swapchain            = swapchainState.swapchain;
+    swapchainImageFormat = swapchainState.swapchainImageFormat;
+    swapchainExtent      = swapchainState.swapchainExtent;
+    swapchainImages      = device.getSwapchainImagesKHR(swapchain);
+
+    swapchainImageViews = Excal::Image::createImageViews(
+      device, swapchainImages, swapchainImageFormat
+    );
 
     // Resource creation
     Excal::Image::createColorResources(
