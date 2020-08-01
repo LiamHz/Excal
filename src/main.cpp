@@ -22,6 +22,7 @@
 #include "image.h"
 #include "pipeline.h"
 #include "descriptor.h"
+#include "frame.h"
 
 class ExcalApplication {
 public:
@@ -297,7 +298,24 @@ private:
   void mainLoop() {
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
-      drawFrame();
+      Excal::Frame::drawFrame(
+        // Required for call to Excal::Swapchain::recreateSwpachain
+        // but otherwise not for drawFrame()
+        window,          descriptorPool,       commandBuffers,
+        swapchain,       swapchainImageFormat, swapchainExtent,
+        swapchainImages, swapchainImageViews,  swapchainFramebuffers,
+        colorResources,  depthResources,       uniformBuffers,
+        physicalDevice,  surface,              msaaSamples,
+        depthFormat,     renderPass,           modelData.indices.size(),
+        commandPool,     graphicsPipeline,     vertexBuffer,
+        indexBuffer,     pipelineLayout,       descriptorSets,
+
+        // Required for regular drawFrame() functionality
+        currentFrame,       uniformBuffersMemory,     imagesInFlight,
+        device,             graphicsQueue,            presentQueue,
+        inFlightFences,     imageAvailableSemaphores, renderFinishedSemaphores,
+        framebufferResized, maxFramesInFlight
+      );
     }
 
     device.waitIdle();
@@ -371,154 +389,6 @@ private:
     }
 
     device.destroySwapchainKHR(swapchain);
-  }
-
-  void recreateSwapChain() {
-    // Handle widow minimization
-    int width = 0, height = 0;
-    glfwGetFramebufferSize(window, &width, &height);
-
-    while (width == 0 || height == 0) {
-      glfwGetFramebufferSize(window, &width, &height);
-      glfwWaitEvents();
-    }
-
-    device.waitIdle();
-
-    auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
-
-    auto swapchainState = Excal::Swapchain::createSwapchain(
-      physicalDevice,
-      device,
-      surface,
-      window,
-      queueFamilyIndices
-    );
-
-    swapchain            = swapchainState.swapchain;
-    swapchainImageFormat = swapchainState.swapchainImageFormat;
-    swapchainExtent      = swapchainState.swapchainExtent;
-    swapchainImages      = device.getSwapchainImagesKHR(swapchain);
-
-    swapchainImageViews = Excal::Image::createImageViews(
-      device, swapchainImages, swapchainImageFormat
-    );
-
-    // Resource creation
-    Excal::Image::createColorResources(
-      colorResources,
-      physicalDevice,
-      device,
-      swapchainImageFormat,
-      swapchainExtent,
-      msaaSamples
-    );
-
-    Excal::Image::createDepthResources(
-      depthResources,
-      physicalDevice,
-      device,
-      depthFormat,
-      swapchainImageFormat,
-      swapchainExtent,
-      msaaSamples
-    );
-
-    swapchainFramebuffers = Excal::Buffer::createFramebuffers(
-      device,
-      swapchainImageViews,
-      colorResources.imageView,
-      depthResources.imageView,
-      renderPass,
-      swapchainExtent
-    );
-
-    uniformBuffers = Excal::Buffer::createUniformBuffers(
-      uniformBuffersMemory,
-      physicalDevice,
-      device,
-      swapchainImageViews.size()
-    );
-
-    descriptorPool = Excal::Descriptor::createDescriptorPool(device, swapchainImages.size());
-
-    commandBuffers = Excal::Buffer::createCommandBuffers(
-      device,
-      commandPool,
-      swapchainFramebuffers,
-      swapchainExtent,
-      modelData.indices.size(),
-      graphicsPipeline,
-      vertexBuffer,
-      indexBuffer,
-      renderPass,
-      descriptorSets,
-      pipelineLayout
-    );
-  }
-
-  void drawFrame() {
-    device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-
-    uint32_t imageIndex;
-    vk::Result result = device.acquireNextImageKHR(
-      swapchain, UINT64_MAX,
-      imageAvailableSemaphores[currentFrame],
-      nullptr, &imageIndex
-    );
-
-    // Usually happens after a window resize
-    if (   result == vk::Result::eErrorOutOfDateKHR
-        || result == vk::Result::eSuboptimalKHR
-    ) {
-      recreateSwapChain();
-      return;
-    }
-
-    Excal::Buffer::updateUniformBuffer(
-      uniformBuffersMemory,
-      device,
-      swapchainExtent,
-      imageIndex
-    );
-
-    // Check if a previous frame is using this image
-    // (i.e. there is its fence to wait on)
-    if (imagesInFlight[imageIndex]) {
-      device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-    }
-    // Mark the image as now being in use by this frame
-    imagesInFlight[imageIndex] = inFlightFences[currentFrame];
-
-    vk::Semaphore signalSemaphores[]    = {renderFinishedSemaphores[currentFrame]};
-    vk::Semaphore waitSemaphores[]      = {imageAvailableSemaphores[currentFrame]};
-    vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
-
-    vk::SubmitInfo submitInfo(
-      1, waitSemaphores, waitStages,
-      1, &commandBuffers[imageIndex],
-      1, signalSemaphores
-    );
-
-    device.resetFences(1, &inFlightFences[currentFrame]);
-
-    graphicsQueue.submit(1, &submitInfo, inFlightFences[currentFrame]);
-
-    vk::SwapchainKHR swapchains[] = {swapchain};
-
-    result = presentQueue.presentKHR(
-      vk::PresentInfoKHR(1, signalSemaphores, 1, swapchains, &imageIndex)
-    );
-
-    if (   result == vk::Result::eErrorOutOfDateKHR
-        || result == vk::Result::eSuboptimalKHR
-        || framebufferResized
-    ) {
-      recreateSwapChain();
-      return;
-    }
-
-    currentFrame = (currentFrame + 1) % maxFramesInFlight;
   }
 };
 

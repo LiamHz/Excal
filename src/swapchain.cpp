@@ -5,8 +5,12 @@
 #include <vulkan/vulkan.hpp>
 #include <tuple>
 
-#include "utils.h"
 #include "structs.h"
+#include "utils.h"
+#include "image.h"
+#include "device.h"
+#include "buffer.h"
+#include "descriptor.h"
 
 namespace Excal::Swapchain
 {
@@ -118,5 +122,116 @@ vk::Extent2D chooseSwapExtent(
 
     return actualExtent;
   }
+}
+
+void recreateSwapChain(
+  GLFWwindow*                           window,
+  vk::DescriptorPool&                   descriptorPool,
+  std::vector<vk::CommandBuffer>&       commandBuffers,
+  vk::SwapchainKHR&                     swapchain,
+  vk::Format&                           swapchainImageFormat,
+  vk::Extent2D                          swapchainExtent,
+  std::vector<vk::Image>&               swapchainImages,
+  std::vector<vk::ImageView>&           swapchainImageViews,
+  std::vector<VkFramebuffer>&           swapchainFramebuffers,
+  Excal::Image::ImageResources&         colorResources,
+  Excal::Image::ImageResources&         depthResources,
+  std::vector<vk::Buffer>&              uniformBuffers,
+  std::vector<vk::DeviceMemory>&        uniformBuffersMemory,
+  const vk::Device&                     device,
+  const vk::PhysicalDevice&             physicalDevice,
+  const vk::SurfaceKHR&                 surface,
+  const vk::SampleCountFlagBits&        msaaSamples,
+  const vk::Format&                     depthFormat,
+  const vk::RenderPass&                 renderPass,
+  const int                             nIndices,
+  const vk::CommandPool&                commandPool,
+  const vk::Pipeline&                   graphicsPipeline,
+  const vk::Buffer&                     vertexBuffer,
+  const vk::Buffer&                     indexBuffer,
+  const vk::PipelineLayout              pipelineLayout,
+  const std::vector<vk::DescriptorSet>& descriptorSets
+) {
+  // Handle widow minimization
+  int width = 0, height = 0;
+  glfwGetFramebufferSize(window, &width, &height);
+
+  while (width == 0 || height == 0) {
+    glfwGetFramebufferSize(window, &width, &height);
+    glfwWaitEvents();
+  }
+
+  device.waitIdle();
+
+  auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
+
+  auto swapchainState = Excal::Swapchain::createSwapchain(
+    physicalDevice,
+    device,
+    surface,
+    window,
+    queueFamilyIndices
+  );
+
+  swapchain            = swapchainState.swapchain;
+  swapchainImageFormat = swapchainState.swapchainImageFormat;
+  swapchainExtent      = swapchainState.swapchainExtent;
+  swapchainImages      = device.getSwapchainImagesKHR(swapchain);
+
+  swapchainImageViews = Excal::Image::createImageViews(
+    device, swapchainImages, swapchainImageFormat
+  );
+
+  // Resource creation
+  Excal::Image::createColorResources(
+    colorResources,
+    physicalDevice,
+    device,
+    swapchainImageFormat,
+    swapchainExtent,
+    msaaSamples
+  );
+
+  Excal::Image::createDepthResources(
+    depthResources,
+    physicalDevice,
+    device,
+    depthFormat,
+    swapchainImageFormat,
+    swapchainExtent,
+    msaaSamples
+  );
+
+  swapchainFramebuffers = Excal::Buffer::createFramebuffers(
+    device,
+    swapchainImageViews,
+    colorResources.imageView,
+    depthResources.imageView,
+    renderPass,
+    swapchainExtent
+  );
+
+  uniformBuffers = Excal::Buffer::createUniformBuffers(
+    uniformBuffersMemory,
+    physicalDevice,
+    device,
+    swapchainImageViews.size()
+  );
+
+  descriptorPool = Excal::Descriptor::createDescriptorPool(device, swapchainImages.size());
+
+  commandBuffers = Excal::Buffer::createCommandBuffers(
+    device,
+    commandPool,
+    swapchainFramebuffers,
+    swapchainExtent,
+    nIndices,
+    graphicsPipeline,
+    vertexBuffer,
+    indexBuffer,
+    renderPass,
+    descriptorSets,
+    pipelineLayout
+  );
 }
 }

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vulkan/vulkan.hpp>
 
 namespace Excal::Image
