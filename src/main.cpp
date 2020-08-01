@@ -29,6 +29,7 @@
 #include "buffer.h"
 #include "image.h"
 #include "pipeline.h"
+#include "descriptor.h"
 
 class ExcalApplication {
 public:
@@ -181,7 +182,7 @@ private:
       msaaSamples
     );
 
-    createDescriptorSetLayout();
+    descriptorSetLayout = Excal::Descriptor::createDescriptorSetLayout(device);
 
     // TODO Fill in the create info
     pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
@@ -265,8 +266,17 @@ private:
 
     createUniformBuffers();
 
-    createDescriptorPool();
-    createDescriptorSets();
+    descriptorPool = Excal::Descriptor::createDescriptorPool(device, swapchainImages.size());
+    descriptorSets = Excal::Descriptor::createDescriptorSets(
+      device,
+      swapchainImages.size(),
+      descriptorPool,
+      descriptorSetLayout,
+      uniformBuffers,
+      textureResources.imageView,
+      textureSampler
+    );
+
     createCommandBuffers(modelData.indices.size());
   }
 
@@ -394,29 +404,8 @@ private:
 
     createFramebuffers(colorResources.imageView, depthResources.imageView);
     createUniformBuffers();
-    createDescriptorPool();
+    descriptorPool = Excal::Descriptor::createDescriptorPool(device, swapchainImages.size());
     createCommandBuffers(modelData.indices.size());
-  }
-
-  void createDescriptorSetLayout() {
-    vk::DescriptorSetLayoutBinding uboLayoutBinding(
-      0, vk::DescriptorType::eUniformBuffer, 1,
-      vk::ShaderStageFlagBits::eVertex, nullptr
-    );
-
-    vk::DescriptorSetLayoutBinding samplerLayoutBinding(
-      1, vk::DescriptorType::eCombinedImageSampler, 1,
-      vk::ShaderStageFlagBits::eFragment, nullptr
-    );
-
-    std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {
-      uboLayoutBinding,
-      samplerLayoutBinding
-    };
-
-   descriptorSetLayout = device.createDescriptorSetLayout(
-     vk::DescriptorSetLayoutCreateInfo({}, bindings.size(), bindings.data())
-   );
   }
 
   void createFramebuffers(
@@ -438,75 +427,6 @@ private:
           attachments.size(), attachments.data(),
           swapchainExtent.width, swapchainExtent.height, 1
         )
-      );
-    }
-  }
-
-  void createDescriptorPool() {
-    vk::DescriptorPoolSize uniformBufferPoolSize(
-      vk::DescriptorType::eUniformBuffer, swapchainImages.size()
-    );
-
-    vk::DescriptorPoolSize samplerPoolSize(
-      vk::DescriptorType::eCombinedImageSampler, swapchainImages.size()
-    );
-
-    std::array<vk::DescriptorPoolSize, 2> poolSizes = {
-      uniformBufferPoolSize,
-      samplerPoolSize
-    };
-
-    descriptorPool = device.createDescriptorPool(
-      vk::DescriptorPoolCreateInfo(
-        {}, swapchainImages.size(),
-        poolSizes.size(), poolSizes.data()
-      )
-    );
-  }
-
-  void createDescriptorSets() {
-    descriptorSets.resize(swapchainImages.size());
-    std::vector<vk::DescriptorSetLayout> layouts(
-      swapchainImages.size(), descriptorSetLayout
-    );
-
-    descriptorSets = device.allocateDescriptorSets(
-      vk::DescriptorSetAllocateInfo(
-        descriptorPool, swapchainImages.size(), layouts.data()
-      )
-    );
-
-    for (size_t i=0; i < swapchainImages.size(); i++) {
-      vk::DescriptorBufferInfo bufferInfo(
-        uniformBuffers[i], 0, sizeof(UniformBufferObject)
-      );
-
-      vk::DescriptorImageInfo imageInfo(
-        textureSampler, textureResources.imageView,
-        vk::ImageLayout::eShaderReadOnlyOptimal
-      );
-
-      vk::WriteDescriptorSet uniformBufferDescriptorWrite(
-        descriptorSets[i], 0, 0, 1,
-        vk::DescriptorType::eUniformBuffer,
-        nullptr, &bufferInfo, nullptr
-      );
-
-      vk::WriteDescriptorSet samplerDescriptorWrite(
-        descriptorSets[i], 1, 0, 1,
-        vk::DescriptorType::eCombinedImageSampler,
-        &imageInfo, nullptr, nullptr
-      );
-
-      std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
-        uniformBufferDescriptorWrite,
-        samplerDescriptorWrite
-      };
-
-      device.updateDescriptorSets(
-        descriptorWrites.size(),
-        descriptorWrites.data(),
-        0, nullptr
       );
     }
   }
