@@ -7,6 +7,53 @@
 
 namespace Excal::Buffer
 {
+void createBuffer(
+  vk::Buffer&                    buffer,
+  vk::DeviceMemory&              bufferMemory,
+  const vk::PhysicalDevice&      physicalDevice,
+  const vk::Device&              device,
+  const vk::DeviceSize&          bufferSize,
+  const vk::BufferUsageFlags&    usage,
+  const vk::MemoryPropertyFlags& properties
+);
+
+std::vector<vk::CommandBuffer> createCommandBuffers(
+  const vk::Device&                     device,
+  const vk::CommandPool&                commandPool,
+  const std::vector<VkFramebuffer>&     swapchainFramebuffers,
+  const vk::Extent2D                    swapchainExtent,
+  const uint32_t                        nIndices,
+  const vk::Pipeline&                   graphicsPipeline,
+  const vk::Buffer&                     vertexBuffer,
+  const vk::Buffer&                     indexBuffer,
+  const vk::RenderPass&                 renderPass,
+  const std::vector<vk::DescriptorSet>& descriptorSets,
+  const vk::PipelineLayout&             pipelineLayout
+);
+
+std::vector<VkFramebuffer> createFramebuffers(
+  const vk::Device&                 device,
+  const std::vector<vk::ImageView>& swapchainImageViews,
+  const vk::ImageView&              colorImageView,
+  const vk::ImageView&              depthImageView,
+  const vk::RenderPass&             renderPass,
+  const vk::Extent2D&               swapchainExtent
+);
+
+std::vector<vk::Buffer> createUniformBuffers(
+  std::vector<vk::DeviceMemory>& uniformBuffersMemory,
+  const vk::PhysicalDevice&      physicalDevice,
+  const vk::Device&              device,
+  const int                      nBuffers
+);
+
+void updateUniformBuffer(
+  std::vector<vk::DeviceMemory>& uniformBuffersMemory,
+  const vk::Device&              device,
+  const vk::Extent2D&            swapchainExtent,
+  const uint32_t                 currentImage
+);
+
 vk::CommandBuffer beginSingleTimeCommands(
   const vk::Device&      device,
   const vk::CommandPool& commandPool
@@ -19,22 +66,11 @@ void endSingleTimeCommands(
   const vk::Queue&         cmdQueue
 );
 
-void createBuffer(
-  vk::Buffer&                    buffer,
-  vk::DeviceMemory&              bufferMemory,
-  const vk::PhysicalDevice&      physicalDevice,
-  const vk::Device&              device,
-  const vk::DeviceSize&          bufferSize,
-  const vk::BufferUsageFlags&    usage,
-  const vk::MemoryPropertyFlags& properties
-);
-
 // Since template functions are turned into "real functions" at compile time
 // they must be defined in the same scope as where they are called from, therefore:
-// **Template functions have to be defined in the header**
+// **Template functions in namespaces have to be defined in the header file**
 template <typename T>
-void createVkBuffer(
-  vk::Buffer&                    buffer,
+vk::Buffer createVkBuffer(
   vk::DeviceMemory&              bufferMemory,
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
@@ -65,6 +101,7 @@ void createVkBuffer(
   device.unmapMemory(stagingBufferMemory);
 
   // Create buffer on the GPU (device visible)
+  vk::Buffer buffer;
   createBuffer(
     buffer,
     bufferMemory,
@@ -86,5 +123,7 @@ void createVkBuffer(
   // Free resources
   device.destroyBuffer(stagingBuffer);
   device.freeMemory(stagingBufferMemory);
+
+  return buffer;
 }
 }

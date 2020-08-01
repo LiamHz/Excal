@@ -1,16 +1,8 @@
 #define GLFW_INCLUDE_VULKAN
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_ENABLE_EXPERIMENTAL
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/gtx/hash.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 
 #include <vulkan/vulkan.hpp>
 
-#include <chrono>
 #include <algorithm>
 #include <stdexcept>
 #include <cstdlib>
@@ -223,7 +215,14 @@ private:
       msaaSamples
     );
 
-    createFramebuffers(colorResources.imageView, depthResources.imageView);
+    swapchainFramebuffers = Excal::Buffer::createFramebuffers(
+      device,
+      swapchainImageViews,
+      colorResources.imageView,
+      depthResources.imageView,
+      renderPass,
+      swapchainExtent
+    );
 
     const std::string texturePath = "../textures/ivysaur_diffuse.jpg";
     Excal::Image::createTextureResources(
@@ -240,10 +239,9 @@ private:
       textureResources.image
     );
 
-    Excal::Model::loadModel(modelData,  "../models/ivysaur.obj");
+    Excal::Model::loadModel(modelData, "../models/ivysaur.obj");
 
-    Excal::Buffer::createVkBuffer(
-      vertexBuffer,
+    vertexBuffer = Excal::Buffer::createVkBuffer(
       vertexBufferMemory,
       physicalDevice,
       device,
@@ -253,8 +251,7 @@ private:
       graphicsQueue
     );
 
-    Excal::Buffer::createVkBuffer(
-      indexBuffer,
+    indexBuffer = Excal::Buffer::createVkBuffer(
       indexBufferMemory,
       physicalDevice,
       device,
@@ -264,7 +261,12 @@ private:
       graphicsQueue
     );
 
-    createUniformBuffers();
+    uniformBuffers = Excal::Buffer::createUniformBuffers(
+      uniformBuffersMemory,
+      physicalDevice,
+      device,
+      swapchainImageViews.size()
+    );
 
     descriptorPool = Excal::Descriptor::createDescriptorPool(device, swapchainImages.size());
     descriptorSets = Excal::Descriptor::createDescriptorSets(
@@ -277,7 +279,19 @@ private:
       textureSampler
     );
 
-    createCommandBuffers(modelData.indices.size());
+    commandBuffers = Excal::Buffer::createCommandBuffers(
+      device,
+      commandPool,
+      swapchainFramebuffers,
+      swapchainExtent,
+      modelData.indices.size(),
+      graphicsPipeline,
+      vertexBuffer,
+      indexBuffer,
+      renderPass,
+      descriptorSets,
+      pipelineLayout
+    );
   }
 
   void mainLoop() {
@@ -410,146 +424,37 @@ private:
       msaaSamples
     );
 
-    createFramebuffers(colorResources.imageView, depthResources.imageView);
-    createUniformBuffers();
+    swapchainFramebuffers = Excal::Buffer::createFramebuffers(
+      device,
+      swapchainImageViews,
+      colorResources.imageView,
+      depthResources.imageView,
+      renderPass,
+      swapchainExtent
+    );
+
+    uniformBuffers = Excal::Buffer::createUniformBuffers(
+      uniformBuffersMemory,
+      physicalDevice,
+      device,
+      swapchainImageViews.size()
+    );
+
     descriptorPool = Excal::Descriptor::createDescriptorPool(device, swapchainImages.size());
-    createCommandBuffers(modelData.indices.size());
-  }
 
-  void createFramebuffers(
-    const vk::ImageView& colorImageView,
-    const vk::ImageView& depthImageView
-  ) {
-    swapchainFramebuffers.resize(swapchainImageViews.size());
-
-    for (size_t i=0; i < swapchainImageViews.size(); i++) {
-      std::array<vk::ImageView, 3> attachments = {
-        colorImageView,
-        depthImageView,
-        swapchainImageViews[i],
-      };
-
-      swapchainFramebuffers[i] = device.createFramebuffer(
-        vk::FramebufferCreateInfo(
-          {}, renderPass,
-          attachments.size(), attachments.data(),
-          swapchainExtent.width, swapchainExtent.height, 1
-        )
-      );
-    }
-  }
-
-  void createUniformBuffers() {
-    vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
-
-    uniformBuffers.resize(swapchainImages.size());
-    uniformBuffersMemory.resize(swapchainImages.size());
-
-    for (size_t i=0; i < swapchainImages.size(); i++) {
-      Excal::Buffer::createBuffer(
-        uniformBuffers[i],
-        uniformBuffersMemory[i],
-        physicalDevice,
-        device,
-        bufferSize,
-        vk::BufferUsageFlagBits::eUniformBuffer,
-          vk::MemoryPropertyFlagBits::eHostVisible
-        | vk::MemoryPropertyFlagBits::eHostCoherent
-      );
-    }
-  }
-
-  void updateUniformBuffer(uint32_t currentImage) {
-    static auto startTime = std::chrono::high_resolution_clock::now();
-
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(
-      currentTime - startTime
-    ).count();
-
-    UniformBufferObject ubo{};
-
-    glm::mat4 uboRotation = glm::rotate(
-      glm::mat4(1.0f),
-      (1.0f + time / 2.0f) * glm::radians(90.0f),
-      glm::vec3(0.0f, 1.0f, 0.0f) // Rotation axis
+    commandBuffers = Excal::Buffer::createCommandBuffers(
+      device,
+      commandPool,
+      swapchainFramebuffers,
+      swapchainExtent,
+      modelData.indices.size(),
+      graphicsPipeline,
+      vertexBuffer,
+      indexBuffer,
+      renderPass,
+      descriptorSets,
+      pipelineLayout
     );
-
-    glm::mat4 uboTranslation = glm::translate(
-        glm::mat4(1.0f),
-        glm::vec3(0.0f, -0.67f, 0.0f)
-    );
-
-    ubo.model = uboRotation * uboTranslation;
-
-    ubo.view = glm::lookAt(
-      glm::vec3(0.0f, 1.0f, 3.0f), // Eye position
-      glm::vec3(0.0f),            // Center position
-      glm::vec3(0.0f, 1.0f, 0.0f) // Up Axis
-    );
-
-    ubo.proj = glm::perspective(
-      glm::radians(45.0f),
-      swapchainExtent.width / (float) swapchainExtent.height,
-      0.1f, 10.0f
-    );
-
-    // Invert Y axis to acccount for difference between OpenGL and Vulkan
-    ubo.proj[1][1] *= -1;
-
-    void* data = device.mapMemory(uniformBuffersMemory[currentImage], 0, sizeof(ubo));
-    memcpy(data, &ubo, sizeof(ubo));
-    device.unmapMemory(uniformBuffersMemory[currentImage]);
-  }
-
-  void createCommandBuffers(uint32_t nIndices) {
-    commandBuffers.resize(swapchainFramebuffers.size());
-
-    commandBuffers = device.allocateCommandBuffers(
-      vk::CommandBufferAllocateInfo(
-        commandPool, vk::CommandBufferLevel::ePrimary, commandBuffers.size()
-      )
-    );
-
-    for (size_t i=0; i < commandBuffers.size(); i++) {
-      vk::CommandBuffer& cmd = commandBuffers[i];
-
-      std::array<vk::ClearValue, 2> clearValues{
-        vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}),
-        vk::ClearDepthStencilValue(1.0f, 0)
-      };
-
-      cmd.begin(vk::CommandBufferBeginInfo());
-
-      cmd.beginRenderPass(
-        vk::RenderPassBeginInfo(
-          renderPass,
-          swapchainFramebuffers[i],
-          vk::Rect2D({0, 0}, swapchainExtent),
-          clearValues.size(), clearValues.data()
-        ),
-        vk::SubpassContents::eInline
-      );
-
-      cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
-
-      vk::Buffer vertexBuffers[] = {vertexBuffer};
-      vk::DeviceSize offsets[] = {0};
-
-      cmd.bindVertexBuffers(0, 1, vertexBuffers, offsets);
-      cmd.bindIndexBuffer(indexBuffer, 0, vk::IndexType::eUint32);
-
-      cmd.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics,
-        pipelineLayout, 0, 1,
-        &descriptorSets[i], 0, nullptr
-      );
-
-      cmd.drawIndexed(nIndices, 1, 0, 0, 0);
-
-      cmd.endRenderPass();
-      cmd.end();
-    }
   }
 
   void drawFrame() {
@@ -570,7 +475,12 @@ private:
       return;
     }
 
-    updateUniformBuffer(imageIndex);
+    Excal::Buffer::updateUniformBuffer(
+      uniformBuffersMemory,
+      device,
+      swapchainExtent,
+      imageIndex
+    );
 
     // Check if a previous frame is using this image
     // (i.e. there is its fence to wait on)
