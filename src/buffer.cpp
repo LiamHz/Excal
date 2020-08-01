@@ -17,8 +17,7 @@
 
 namespace Excal::Buffer
 {
-void createBuffer(
-  vk::Buffer&                    buffer,
+vk::Buffer createBuffer(
   vk::DeviceMemory&              bufferMemory,
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
@@ -26,7 +25,7 @@ void createBuffer(
   const vk::BufferUsageFlags&    usage,
   const vk::MemoryPropertyFlags& properties
 ) {
-  buffer = device.createBuffer(
+  auto buffer = device.createBuffer(
     vk::BufferCreateInfo({}, bufferSize, usage, vk::SharingMode::eExclusive)
   );
 
@@ -42,6 +41,8 @@ void createBuffer(
   );
 
   device.bindBufferMemory(buffer, bufferMemory, 0);
+
+  return buffer;
 }
 
 std::vector<vk::CommandBuffer> createCommandBuffers(
@@ -153,8 +154,7 @@ std::vector<vk::Buffer> createUniformBuffers(
   std::vector<vk::Buffer> uniformBuffers(nBuffers);
 
   for (size_t i=0; i < nBuffers; i++) {
-    Excal::Buffer::createBuffer(
-      uniformBuffers[i],
+    uniformBuffers[i] = Excal::Buffer::createBuffer(
       uniformBuffersMemory[i],
       physicalDevice,
       device,

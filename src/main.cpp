@@ -31,6 +31,9 @@ int main() {
     const uint32_t windowHeight = 900;
 
     const int maxFramesInFlight = 2;
+
+    const std::string modelPath          = "../models/ivysaur.obj";
+    const std::string diffuseTexturePath = "../textures/ivysaur_diffuse.jpg";
     
     //#define NDEBUG
     #ifdef NDEBUG
@@ -38,7 +41,6 @@ int main() {
     #else
       const bool validationLayersEnabled = true;
     #endif
-
 
     // Debugger setup
     const bool validationLayersSupported = Excal::Debug::checkValidationLayerSupport(); 
@@ -131,9 +133,7 @@ int main() {
       vk::CommandPoolCreateInfo({}, queueFamilyIndices.graphicsFamily.value())
     );
 
-    Excal::Image::ImageResources colorResources;
-    Excal::Image::createColorResources(
-      colorResources,
+    auto colorResources = Excal::Image::createColorResources(
       physicalDevice,
       device,
       swapchainImageFormat,
@@ -141,9 +141,7 @@ int main() {
       msaaSamples
     );
 
-    Excal::Image::ImageResources depthResources;
-    Excal::Image::createDepthResources(
-      depthResources,
+    auto depthResources = Excal::Image::createDepthResources(
       physicalDevice,
       device,
       depthFormat,
@@ -161,15 +159,12 @@ int main() {
       swapchainExtent
     );
 
-    Excal::Image::ImageResources textureResources;
-    const std::string texturePath = "../textures/ivysaur_diffuse.jpg";
-    Excal::Image::createTextureResources(
-      textureResources,
+    auto textureResources = Excal::Image::createTextureResources(
       physicalDevice,
       device,
       commandPool,
       graphicsQueue,
-      texturePath
+      diffuseTexturePath
     );
 
     auto textureSampler = Excal::Image::createTextureImageSampler(
@@ -177,8 +172,7 @@ int main() {
       textureResources.image
     );
 
-    Excal::Model::ModelData modelData;
-    Excal::Model::loadModel(modelData, "../models/ivysaur.obj");
+    auto modelData = Excal::Model::loadModel(modelPath);
 
     vk::DeviceMemory vertexBufferMemory;
     auto vertexBuffer = Excal::Buffer::createVkBuffer(

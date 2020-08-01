@@ -132,8 +132,7 @@ void copyBufferToImage(
   Excal::Buffer::endSingleTimeCommands(device, cmd, commandPool, graphicsQueue);
 }
 
-void createImage(
-  vk::Image&                        image,
+vk::Image createImage(
   vk::DeviceMemory&                 imageMemory,
   const vk::PhysicalDevice&         physicalDevice,
   const vk::Device&                 device,
@@ -145,7 +144,7 @@ void createImage(
   const vk::ImageUsageFlags&        usage,
   const vk::MemoryPropertyFlagBits& properties
 ) {
-  image = device.createImage(
+  auto image = device.createImage(
     vk::ImageCreateInfo(
       {}, vk::ImageType::e2D, format,
       vk::Extent3D(width, height, 1), 1, 1,
@@ -167,20 +166,21 @@ void createImage(
   );
 
   device.bindImageMemory(image, imageMemory, 0);
+
+  return image;
 }
 
-void createColorResources(
-  ImageResources&                colorResources,
+ImageResources createColorResources(
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
   const vk::Format&              swapchainImageFormat,
   const vk::Extent2D&            swapchainExtent,
   const vk::SampleCountFlagBits& msaaSamples
 ) {
+  ImageResources colorResources;
   vk::Format colorFormat = swapchainImageFormat;
 
-  createImage(
-    colorResources.image,
+  colorResources.image = createImage(
     colorResources.imageMemory,
     physicalDevice,
     device,
@@ -200,10 +200,11 @@ void createColorResources(
     swapchainImageFormat,
     vk::ImageAspectFlagBits::eColor
   );
+
+  return colorResources;
 }
 
-void createDepthResources(
-  ImageResources&                depthResources,
+ImageResources createDepthResources(
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
   const vk::Format&              depthFormat,
@@ -211,8 +212,9 @@ void createDepthResources(
   const vk::Extent2D&            swapchainExtent,
   const vk::SampleCountFlagBits& msaaSamples
 ) {
-  createImage(
-    depthResources.image,
+  ImageResources depthResources;
+
+  depthResources.image = createImage(
     depthResources.imageMemory,
     physicalDevice,
     device,
@@ -231,10 +233,11 @@ void createDepthResources(
     depthFormat,
     vk::ImageAspectFlagBits::eDepth
   );
+
+  return depthResources;
 }
 
-void createTextureResources(
-  ImageResources&           textureResources,
+ImageResources createTextureResources(
   const vk::PhysicalDevice& physicalDevice,
   const vk::Device&         device,
   const vk::CommandPool&    commandPool,
@@ -255,11 +258,9 @@ void createTextureResources(
   }
 
   // Staging buffer is on the CPU
-  vk::Buffer       stagingBuffer;
   vk::DeviceMemory stagingBufferMemory;
 
-  Excal::Buffer::createBuffer(
-    stagingBuffer,
+  auto stagingBuffer = Excal::Buffer::createBuffer(
     stagingBufferMemory,
     physicalDevice,
     device,
@@ -278,8 +279,9 @@ void createTextureResources(
   vk::Image        textureImage;
   vk::DeviceMemory textureImageMemory;
 
-  createImage(
-    textureResources.image,
+  ImageResources textureResources;
+
+  textureResources.image = createImage(
     textureResources.imageMemory,
     physicalDevice,
     device,
@@ -332,6 +334,8 @@ void createTextureResources(
     vk::Format::eR8G8B8A8Srgb,
     vk::ImageAspectFlagBits::eColor
   );
+
+  return textureResources;
 }
 
 vk::Sampler createTextureImageSampler(

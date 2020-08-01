@@ -183,8 +183,7 @@ void recreateSwapChain(
   );
 
   // Resource creation
-  Excal::Image::createColorResources(
-    colorResources,
+  colorResources = Excal::Image::createColorResources(
     physicalDevice,
     device,
     swapchainImageFormat,
@@ -192,8 +191,7 @@ void recreateSwapChain(
     msaaSamples
   );
 
-  Excal::Image::createDepthResources(
-    depthResources,
+  depthResources = Excal::Image::createDepthResources(
     physicalDevice,
     device,
     depthFormat,

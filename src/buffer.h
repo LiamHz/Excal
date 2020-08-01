@@ -7,8 +7,7 @@
 
 namespace Excal::Buffer
 {
-void createBuffer(
-  vk::Buffer&                    buffer,
+vk::Buffer createBuffer(
   vk::DeviceMemory&              bufferMemory,
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
@@ -82,11 +81,9 @@ vk::Buffer createVkBuffer(
   vk::DeviceSize bufferSize = sizeof(data[0]) * data.size();
 
   // Staging buffer is on the CPU
-  vk::Buffer stagingBuffer;
   vk::DeviceMemory stagingBufferMemory;
 
-  createBuffer(
-    stagingBuffer,
+  auto stagingBuffer = createBuffer(
     stagingBufferMemory,
     physicalDevice,
     device,
@@ -101,9 +98,7 @@ vk::Buffer createVkBuffer(
   device.unmapMemory(stagingBufferMemory);
 
   // Create buffer on the GPU (device visible)
-  vk::Buffer buffer;
-  createBuffer(
-    buffer,
+  auto buffer = createBuffer(
     bufferMemory,
     physicalDevice,
     device,

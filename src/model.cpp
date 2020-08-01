@@ -9,8 +9,7 @@
 
 namespace Excal::Model
 {
-void loadModel(
-  Excal::Model::ModelData& modelData,
+ModelData loadModel(
   const std::string& modelPath
 ) {
   tinyobj::attrib_t attrib;  // Holds positions, normals, and texture coordinates
@@ -29,6 +28,7 @@ void loadModel(
 
   std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 
+  ModelData modelData;
   // Iterate over the shapes vertices and add them to the argument `modelData`
   for (const auto& shape : shapes) {
     for (const auto& index : shape.mesh.indices) {
@@ -56,5 +56,7 @@ void loadModel(
       modelData.indices.push_back(uniqueVertices[vertex]);
     }
   }
+
+  return modelData;
 }
 }

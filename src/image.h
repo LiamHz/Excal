@@ -43,8 +43,7 @@ void copyBufferToImage(
   const uint32_t         height
 );
 
-void createImage(
-  vk::Image&                        image,
+vk::Image createImage(
   vk::DeviceMemory&                 imageMemory,
   const vk::Device&                 device,
   const vk::PhysicalDevice&         physicalDevice,
@@ -57,8 +56,7 @@ void createImage(
   const vk::MemoryPropertyFlagBits& properties
 );
 
-void createColorResources(
-  ImageResources&                colorResources,
+ImageResources createColorResources(
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
   const vk::Format&              swapchainImageFormat,
@@ -66,8 +64,7 @@ void createColorResources(
   const vk::SampleCountFlagBits& msaaSamples
 );
 
-void createDepthResources(
-  ImageResources&                depthResources,
+ImageResources createDepthResources(
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
   const vk::Format&              depthFormat,
@@ -76,8 +73,7 @@ void createDepthResources(
   const vk::SampleCountFlagBits& msaaSamples
 );
 
-void createTextureResources(
-  ImageResources&           textureResources,
+ImageResources createTextureResources(
   const vk::PhysicalDevice& physicalDevice,
   const vk::Device&         device,
   const vk::CommandPool&    commandPool,

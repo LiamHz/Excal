@@ -10,5 +10,5 @@ struct ModelData {
   std::vector<Vertex>   vertices;
 };
 
-void loadModel(Excal::Model::ModelData&, const std::string& modelPath);
+ModelData loadModel(const std::string& modelPath);
 }
