@@ -2,7 +2,12 @@ project(Excal)
 cmake_minimum_required(VERSION 3.10)
 
 set(lib_path /usr/local/lib/)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++17" )
+set(CMAKE_BUILD_TYPE Debug)
+
+# Debug build
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 -fsanitize=address -std=c++17" )
+# Optimized build
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++17" )
 
 file(GLOB src_files "src/*.h" "src/*.cpp")
 
