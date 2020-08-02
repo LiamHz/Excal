@@ -4,3 +4,4 @@ build/
 
 *.vim
 .DS_Store
+design.md
