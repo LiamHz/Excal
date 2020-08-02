@@ -23,283 +23,290 @@
 #include "descriptor.h"
 #include "frame.h"
 
-int main() {
-  try {
-    // Application config
-    const uint32_t windowWidth  = 1440;
-    const uint32_t windowHeight = 900;
+int main()
+{
+try
+{
+  // Application config
+  const uint32_t windowWidth  = 1440;
+  const uint32_t windowHeight = 900;
 
-    const int maxFramesInFlight = 1;
+  const int maxFramesInFlight = 3; // Triple buffering
 
-    const std::string modelPath          = "../models/ivysaur.obj";
-    const std::string diffuseTexturePath = "../textures/ivysaur_diffuse.jpg";
-    
-    //#define NDEBUG
-    #ifdef NDEBUG
-      const bool validationLayersEnabled = false;
-    #else
-      const bool validationLayersEnabled = true;
-    #endif
+  const std::string modelPath          = "../models/ivysaur.obj";
+  const std::string diffuseTexturePath = "../textures/ivysaur_diffuse.jpg";
 
-    // Debugger setup
-    const bool validationLayersSupported = Excal::Debug::checkValidationLayerSupport(); 
-    const auto validationLayers          = Excal::Debug::getValidationLayers();
-    const auto debugMessengerCreateInfo  = Excal::Debug::getDebugMessengerCreateInfo();
+  //#define NDEBUG
+  #ifdef NDEBUG
+    const bool validationLayersEnabled = false;
+  #else
+    const bool validationLayersEnabled = true;
+  #endif
 
-    bool framebufferResized = false;
-    auto window = Excal::Surface::initWindow(
-      &framebufferResized, windowWidth, windowHeight
-    );
+  // Debugger setup
+  const bool validationLayersSupported = Excal::Debug::checkValidationLayerSupport();
+  const auto validationLayers          = Excal::Debug::getValidationLayers();
+  const auto debugMessengerCreateInfo  = Excal::Debug::getDebugMessengerCreateInfo();
 
-    auto instance = Excal::Device::createInstance(
-      validationLayersEnabled,
-      validationLayersSupported,
-      validationLayers,
-      debugMessengerCreateInfo
-    );
+  bool framebufferResized = false;
+  auto window = Excal::Surface::initWindow(
+    &framebufferResized, windowWidth, windowHeight
+  );
 
-    auto debugMessenger = Excal::Debug::setupDebugMessenger(
-      instance, validationLayersEnabled, debugMessengerCreateInfo
-    );
+  auto instance = Excal::Device::createInstance(
+    validationLayersEnabled,
+    validationLayersSupported,
+    validationLayers,
+    debugMessengerCreateInfo
+  );
 
-    auto surface = Excal::Surface::createSurface(instance, window);
+  auto debugMessenger = Excal::Debug::setupDebugMessenger(
+    instance, validationLayersEnabled, debugMessengerCreateInfo
+  );
 
-    auto physicalDevice     = Excal::Device::pickPhysicalDevice(instance, surface);
-    auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
+  auto surface = Excal::Surface::createSurface(instance, window);
 
-    auto device = Excal::Device::createLogicalDevice(physicalDevice, queueFamilyIndices);
+  auto physicalDevice     = Excal::Device::pickPhysicalDevice(instance, surface);
+  auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
 
-    auto graphicsQueue = device.getQueue(queueFamilyIndices.graphicsFamily.value(), 0);
-    auto presentQueue  = device.getQueue(queueFamilyIndices.presentFamily.value(), 0);
+  auto device = Excal::Device::createLogicalDevice(physicalDevice, queueFamilyIndices);
 
-    auto msaaSamples = Excal::Device::getMaxUsableSampleCount(physicalDevice);
+  auto graphicsQueue = device.getQueue(queueFamilyIndices.graphicsFamily.value(), 0);
+  auto presentQueue  = device.getQueue(queueFamilyIndices.presentFamily.value(), 0);
 
-    // Create swapchain and image views
-    auto swapchainState = Excal::Swapchain::createSwapchain(
-      physicalDevice, device,
-      surface, window,
-      queueFamilyIndices
-    );
+  auto msaaSamples = Excal::Device::getMaxUsableSampleCount(physicalDevice);
 
-    auto swapchain            = swapchainState.swapchain;
-    auto swapchainImageFormat = swapchainState.swapchainImageFormat;
-    auto swapchainExtent      = swapchainState.swapchainExtent;
-    auto swapchainImages      = device.getSwapchainImagesKHR(swapchain);
+  // Create swapchain and image views
+  auto swapchainState = Excal::Swapchain::createSwapchain(
+    physicalDevice, device,
+    surface, window,
+    queueFamilyIndices
+  );
 
-    auto swapchainImageViews = Excal::Image::createImageViews(
-      device, swapchainImages, swapchainImageFormat
-    );
+  auto swapchain            = swapchainState.swapchain;
+  auto swapchainImageFormat = swapchainState.swapchainImageFormat;
+  auto swapchainExtent      = swapchainState.swapchainExtent;
+  auto swapchainImages      = device.getSwapchainImagesKHR(swapchain);
 
-    // Create sync objects for each frame in flight
-    std::vector<vk::Semaphore> imageAvailableSemaphores;
-    std::vector<vk::Semaphore> renderFinishedSemaphores;
-    std::vector<vk::Fence>     inFlightFences;
-    std::vector<vk::Fence>     imagesInFlight(maxFramesInFlight);
-    for (int i=0; i < maxFramesInFlight; i++)
-    {
-      imageAvailableSemaphores.push_back(device.createSemaphore({}, nullptr));
-      renderFinishedSemaphores.push_back(device.createSemaphore({}, nullptr));
-      inFlightFences.push_back(device.createFence(
-        vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled), nullptr
-      ));
-    }
+  auto swapchainImageViews = Excal::Image::createImageViews(
+    device, swapchainImages, swapchainImageFormat
+  );
 
-    auto depthFormat = Excal::Image::findDepthFormat(physicalDevice);
+  // Create sync objects for each frame in flight
+  std::vector<vk::Semaphore> imageAvailableSemaphores;
+  std::vector<vk::Semaphore> renderFinishedSemaphores;
+  std::vector<vk::Fence>     inFlightFences;
+  std::vector<vk::Fence>     imagesInFlight(maxFramesInFlight);
 
-    auto renderPass = Excal::Pipeline::createRenderPass(
-      device,
-      depthFormat,
-      swapchainImageFormat,
-      msaaSamples
-    );
-
-    auto descriptorSetLayout = Excal::Descriptor::createDescriptorSetLayout(device);
-
-    // TODO Fill in the create info
-    auto pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
-
-    auto pipelineLayout = device.createPipelineLayout(
-      vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 0, nullptr)
-    );
-
-    auto graphicsPipeline = Excal::Pipeline::createGraphicsPipeline(
-      device,
-      pipelineLayout,
-      pipelineCache,
-      renderPass,
-      swapchainExtent,
-      msaaSamples
-    );
-
-    auto commandPool = device.createCommandPool(
-      vk::CommandPoolCreateInfo({}, queueFamilyIndices.graphicsFamily.value())
-    );
-
-    auto colorResources = Excal::Image::createColorResources(
-      physicalDevice,
-      device,
-      swapchainImageFormat,
-      swapchainExtent,
-      msaaSamples
-    );
-
-    auto depthResources = Excal::Image::createDepthResources(
-      physicalDevice,
-      device,
-      depthFormat,
-      swapchainImageFormat,
-      swapchainExtent,
-      msaaSamples
-    );
-
-    auto swapchainFramebuffers = Excal::Buffer::createFramebuffers(
-      device,
-      swapchainImageViews,
-      colorResources.imageView,
-      depthResources.imageView,
-      renderPass,
-      swapchainExtent
-    );
-
-    auto textureResources = Excal::Image::createTextureResources(
-      physicalDevice,
-      device,
-      commandPool,
-      graphicsQueue,
-      diffuseTexturePath
-    );
-
-    auto textureSampler = Excal::Image::createTextureImageSampler(
-      device,
-      textureResources.image
-    );
-
-    auto modelData = Excal::Model::loadModel(modelPath);
-
-    vk::DeviceMemory vertexBufferMemory;
-    auto vertexBuffer = Excal::Buffer::createVkBuffer(
-      vertexBufferMemory,
-      physicalDevice,
-      device,
-      modelData.vertices,
-      vk::BufferUsageFlagBits::eVertexBuffer,
-      commandPool,
-      graphicsQueue
-    );
-
-    vk::DeviceMemory indexBufferMemory;
-    auto indexBuffer = Excal::Buffer::createVkBuffer(
-      indexBufferMemory,
-      physicalDevice,
-      device,
-      modelData.indices,
-      vk::BufferUsageFlagBits::eIndexBuffer,
-      commandPool,
-      graphicsQueue
-    );
-
-    std::vector<vk::DeviceMemory>  uniformBuffersMemory;
-    auto uniformBuffers = Excal::Buffer::createUniformBuffers(
-      uniformBuffersMemory,
-      physicalDevice,
-      device,
-      swapchainImageViews.size()
-    );
-
-    auto descriptorPool = Excal::Descriptor::createDescriptorPool(
-      device, swapchainImages.size()
-    );
-
-    auto descriptorSets = Excal::Descriptor::createDescriptorSets(
-      device,
-      swapchainImages.size(),
-      descriptorPool,
-      descriptorSetLayout,
-      uniformBuffers,
-      textureResources.imageView,
-      textureSampler
-    );
-
-    auto commandBuffers = Excal::Buffer::createCommandBuffers(
-      device,          commandPool,              swapchainFramebuffers,
-      swapchainExtent, modelData.indices.size(), graphicsPipeline,
-      vertexBuffer,    indexBuffer,              renderPass,
-      descriptorSets,  pipelineLayout
-    );
-
-    // Main loop
-    size_t currentFrame = 0;
-
-    while (!glfwWindowShouldClose(window)) {
-      glfwPollEvents();
-      Excal::Frame::drawFrame(
-        // Required for call to Excal::Swapchain::recreateSwpachain
-        // but otherwise not for drawFrame()
-        window,                   descriptorPool,       commandBuffers,
-        swapchain,                swapchainImageFormat, swapchainExtent,
-        swapchainImages,          swapchainImageViews,  swapchainFramebuffers,
-        colorResources,           depthResources,       uniformBuffers,
-        renderPass,               graphicsPipeline,     pipelineLayout,
-        pipelineCache,            descriptorSets,       physicalDevice,
-        surface,                  msaaSamples,          depthFormat,
-        modelData.indices.size(), commandPool,          vertexBuffer,
-        indexBuffer,              descriptorSetLayout,  textureResources.imageView,
-        textureSampler,
-
-        // Required for regular drawFrame() functionality
-        currentFrame,             framebufferResized, uniformBuffersMemory,
-        imagesInFlight,           device,             graphicsQueue,
-        presentQueue,             inFlightFences,     imageAvailableSemaphores,
-        renderFinishedSemaphores, maxFramesInFlight
-      );
-    }
-
-    device.waitIdle();
-
-    // Application cleanup
-    Excal::Swapchain::cleanupSwapchain(
-      device,                commandPool,          descriptorPool,
-      commandBuffers,        swapchain,            swapchainImageViews,
-      swapchainFramebuffers, colorResources,       depthResources,
-      uniformBuffers,        uniformBuffersMemory, renderPass,
-      graphicsPipeline,      pipelineCache,        pipelineLayout
-    );
-    
-    for (size_t i=0; i < maxFramesInFlight; i++) {
-      device.destroySemaphore(imageAvailableSemaphores[i]);
-      device.destroySemaphore(renderFinishedSemaphores[i]);
-      device.destroyFence(inFlightFences[i]);
-    }
-
-    device.destroyDescriptorSetLayout(descriptorSetLayout);
-
-    device.destroyBuffer(indexBuffer);
-    device.freeMemory(indexBufferMemory);
-
-    device.destroyBuffer(vertexBuffer);
-    device.freeMemory(vertexBufferMemory);
-
-    device.destroySampler(textureSampler);
-    device.destroyImageView(textureResources.imageView);
-    device.destroyImage(textureResources.image);
-    device.freeMemory(textureResources.imageMemory);
-
-    device.destroyCommandPool(commandPool);
-    device.destroy();
-
-    if (validationLayersEnabled) {
-      Excal::Debug::DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
-    }
-
-    instance.destroySurfaceKHR(surface);
-    instance.destroy();
-
-    glfwDestroyWindow(window);
-    glfwTerminate();
-  } catch (const std::exception& e) {
-    std::cerr << e.what() << std::endl;
-    return EXIT_FAILURE;
+  for (int i=0; i < maxFramesInFlight; i++)
+  {
+    imageAvailableSemaphores.push_back(device.createSemaphore({}, nullptr));
+    renderFinishedSemaphores.push_back(device.createSemaphore({}, nullptr));
+    inFlightFences.push_back(device.createFence(
+      vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled), nullptr
+    ));
   }
 
-  return EXIT_SUCCESS;
+  auto depthFormat = Excal::Image::findDepthFormat(physicalDevice);
+
+  auto renderPass = Excal::Pipeline::createRenderPass(
+    device,
+    depthFormat,
+    swapchainImageFormat,
+    msaaSamples
+  );
+
+  auto descriptorSetLayout = Excal::Descriptor::createDescriptorSetLayout(device);
+
+  // TODO Fill in the create info
+  auto pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
+
+  auto pipelineLayout = device.createPipelineLayout(
+    vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 0, nullptr)
+  );
+
+  auto graphicsPipeline = Excal::Pipeline::createGraphicsPipeline(
+    device,
+    pipelineLayout,
+    pipelineCache,
+    renderPass,
+    swapchainExtent,
+    msaaSamples
+  );
+
+  auto commandPool = device.createCommandPool(
+    vk::CommandPoolCreateInfo({}, queueFamilyIndices.graphicsFamily.value())
+  );
+
+  auto colorResources = Excal::Image::createColorResources(
+    physicalDevice,
+    device,
+    swapchainImageFormat,
+    swapchainExtent,
+    msaaSamples
+  );
+
+  auto depthResources = Excal::Image::createDepthResources(
+    physicalDevice,
+    device,
+    depthFormat,
+    swapchainImageFormat,
+    swapchainExtent,
+    msaaSamples
+  );
+
+  auto swapchainFramebuffers = Excal::Buffer::createFramebuffers(
+    device,
+    swapchainImageViews,
+    colorResources.imageView,
+    depthResources.imageView,
+    renderPass,
+    swapchainExtent
+  );
+
+  auto textureResources = Excal::Image::createTextureResources(
+    physicalDevice,
+    device,
+    commandPool,
+    graphicsQueue,
+    diffuseTexturePath
+  );
+
+  auto textureSampler = Excal::Image::createTextureImageSampler(
+    device,
+    textureResources.image
+  );
+
+  auto modelData = Excal::Model::loadModel(modelPath);
+
+  vk::DeviceMemory vertexBufferMemory;
+  auto vertexBuffer = Excal::Buffer::createVkBuffer(
+    vertexBufferMemory,
+    physicalDevice,
+    device,
+    modelData.vertices,
+    vk::BufferUsageFlagBits::eVertexBuffer,
+    commandPool,
+    graphicsQueue
+  );
+
+  vk::DeviceMemory indexBufferMemory;
+  auto indexBuffer = Excal::Buffer::createVkBuffer(
+    indexBufferMemory,
+    physicalDevice,
+    device,
+    modelData.indices,
+    vk::BufferUsageFlagBits::eIndexBuffer,
+    commandPool,
+    graphicsQueue
+  );
+
+  std::vector<vk::DeviceMemory>  uniformBuffersMemory;
+  auto uniformBuffers = Excal::Buffer::createUniformBuffers(
+    uniformBuffersMemory,
+    physicalDevice,
+    device,
+    swapchainImageViews.size()
+  );
+
+  auto descriptorPool = Excal::Descriptor::createDescriptorPool(
+    device, swapchainImages.size()
+  );
+
+  auto descriptorSets = Excal::Descriptor::createDescriptorSets(
+    device,
+    swapchainImages.size(),
+    descriptorPool,
+    descriptorSetLayout,
+    uniformBuffers,
+    textureResources.imageView,
+    textureSampler
+  );
+
+  auto commandBuffers = Excal::Buffer::createCommandBuffers(
+    device,          commandPool,              swapchainFramebuffers,
+    swapchainExtent, modelData.indices.size(), graphicsPipeline,
+    vertexBuffer,    indexBuffer,              renderPass,
+    descriptorSets,  pipelineLayout
+  );
+
+  // Main loop
+  size_t currentFrame = 0;
+
+  while (!glfwWindowShouldClose(window))
+  {
+    glfwPollEvents();
+    Excal::Frame::drawFrame(
+      // Required for call to Excal::Swapchain::recreateSwpachain
+      // but otherwise not for drawFrame()
+      window,                   descriptorPool,       commandBuffers,
+      swapchain,                swapchainImageFormat, swapchainExtent,
+      swapchainImages,          swapchainImageViews,  swapchainFramebuffers,
+      colorResources,           depthResources,       uniformBuffers,
+      renderPass,               graphicsPipeline,     pipelineLayout,
+      pipelineCache,            descriptorSets,       physicalDevice,
+      surface,                  msaaSamples,          depthFormat,
+      modelData.indices.size(), commandPool,          vertexBuffer,
+      indexBuffer,              descriptorSetLayout,  textureResources.imageView,
+      textureSampler,
+
+      // Required for regular drawFrame() functionality
+      currentFrame,             framebufferResized, uniformBuffersMemory,
+      imagesInFlight,           device,             graphicsQueue,
+      presentQueue,             inFlightFences,     imageAvailableSemaphores,
+      renderFinishedSemaphores, maxFramesInFlight
+    );
+  }
+
+  device.waitIdle();
+
+  // Application cleanup
+  Excal::Swapchain::cleanupSwapchain(
+    device,                commandPool,          descriptorPool,
+    commandBuffers,        swapchain,            swapchainImageViews,
+    swapchainFramebuffers, colorResources,       depthResources,
+    uniformBuffers,        uniformBuffersMemory, renderPass,
+    graphicsPipeline,      pipelineCache,        pipelineLayout
+  );
+
+  for (size_t i=0; i < maxFramesInFlight; i++)
+  {
+    device.destroySemaphore(imageAvailableSemaphores[i]);
+    device.destroySemaphore(renderFinishedSemaphores[i]);
+    device.destroyFence(inFlightFences[i]);
+  }
+
+  device.destroyDescriptorSetLayout(descriptorSetLayout);
+
+  device.destroyBuffer(indexBuffer);
+  device.freeMemory(indexBufferMemory);
+
+  device.destroyBuffer(vertexBuffer);
+  device.freeMemory(vertexBufferMemory);
+
+  device.destroySampler(textureSampler);
+  device.destroyImageView(textureResources.imageView);
+  device.destroyImage(textureResources.image);
+  device.freeMemory(textureResources.imageMemory);
+
+  device.destroyCommandPool(commandPool);
+  device.destroy();
+
+  if (validationLayersEnabled)
+  {
+    Excal::Debug::DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+  }
+
+  instance.destroySurfaceKHR(surface);
+  instance.destroy();
+
+  glfwDestroyWindow(window);
+  glfwTerminate();
+} catch (const std::exception& e)
+{
+  std::cerr << e.what() << std::endl;
+  return EXIT_FAILURE;
+}
+
+return EXIT_SUCCESS;
 }
