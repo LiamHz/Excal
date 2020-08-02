@@ -6,7 +6,6 @@
 #include <tuple>
 
 #include "structs.h"
-#include "utils.h"
 #include "image.h"
 #include "device.h"
 #include "buffer.h"
@@ -21,8 +20,8 @@ Excal::Swapchain::SwapchainState createSwapchain(
   GLFWwindow*               window,
   const QueueFamilyIndices& indices
 ) {
-  SwapChainSupportDetails swapchainSupport
-    = Excal::Utils::querySwapChainSupport(physicalDevice, surface);
+  SwapchainSupportDetails swapchainSupport
+    = Excal::Device::querySwapchainSupport(physicalDevice, surface);
 
   auto surfaceFormat = chooseSwapSurfaceFormat(swapchainSupport.surfaceFormats);
   auto presentMode   = chooseSwapPresentMode(swapchainSupport.presentModes);
@@ -124,7 +123,7 @@ vk::Extent2D chooseSwapExtent(
   }
 }
 
-void recreateSwapChain(
+void recreateSwapchain(
   GLFWwindow*                           window,
   vk::DescriptorPool&                   descriptorPool,
   std::vector<vk::CommandBuffer>&       commandBuffers,

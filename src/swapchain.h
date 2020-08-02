@@ -31,7 +31,7 @@ vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
   const std::vector<vk::SurfaceFormatKHR>&
 );
 
-void recreateSwapChain(
+void recreateSwapchain(
   GLFWwindow*                           window,
   vk::DescriptorPool&                   descriptorPool,
   std::vector<vk::CommandBuffer>&       commandBuffers,

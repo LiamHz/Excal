@@ -12,7 +12,6 @@
 #include <array>
 
 #include "structs.h"
-#include "utils.h"
 #include "device.h"
 #include "surface.h"
 #include "debug.h"

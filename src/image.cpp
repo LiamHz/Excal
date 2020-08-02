@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "buffer.h"
+#include "device.h"
 
 namespace Excal::Image
 {
@@ -159,7 +160,7 @@ vk::Image createImage(
   imageMemory = device.allocateMemory(
     vk::MemoryAllocateInfo(
       memRequirements.size,
-      Excal::Utils::findMemoryType(
+      Excal::Device::findMemoryType(
         physicalDevice, memRequirements.memoryTypeBits, properties
       )
     )

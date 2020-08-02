@@ -64,7 +64,7 @@ void drawFrame(
   if (   result == vk::Result::eErrorOutOfDateKHR
       || result == vk::Result::eSuboptimalKHR
   ) {
-    Excal::Swapchain::recreateSwapChain(
+    Excal::Swapchain::recreateSwapchain(
       window,               descriptorPool,       commandBuffers,
       swapchain,            swapchainImageFormat, swapchainExtent,
       swapchainImages,      swapchainImageViews,  swapchainFramebuffers,
@@ -117,7 +117,7 @@ void drawFrame(
       || result == vk::Result::eSuboptimalKHR
       || framebufferResized
   ) {
-    Excal::Swapchain::recreateSwapChain(
+    Excal::Swapchain::recreateSwapchain(
       window,               descriptorPool,       commandBuffers,
       swapchain,            swapchainImageFormat, swapchainExtent,
       swapchainImages,      swapchainImageViews,  swapchainFramebuffers,

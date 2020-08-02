@@ -23,4 +23,15 @@ bool checkDeviceExtensionSupport(const vk::PhysicalDevice& physicalDevice);
 
 int rateDeviceSuitability(const vk::PhysicalDevice&, const vk::SurfaceKHR&);
 vk::SampleCountFlagBits getMaxUsableSampleCount(const vk::PhysicalDevice&);
+
+SwapchainSupportDetails querySwapchainSupport(
+  const vk::PhysicalDevice&,
+  const vk::SurfaceKHR&
+);
+
+uint32_t findMemoryType(
+  const vk::PhysicalDevice&      physicalDevice,
+  const uint32_t                 typeFilter,
+  const vk::MemoryPropertyFlags& properties
+);
 }

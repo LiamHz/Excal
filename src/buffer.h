@@ -3,8 +3,6 @@
 #include <vulkan/vulkan.hpp>
 #include <vector>
 
-#include "utils.h"
-
 namespace Excal::Buffer
 {
 vk::Buffer createBuffer(

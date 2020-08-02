@@ -12,7 +12,7 @@
 #include <glm/gtx/hash.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "utils.h"
+#include "device.h"
 #include "structs.h"
 
 namespace Excal::Buffer
@@ -34,7 +34,7 @@ vk::Buffer createBuffer(
   bufferMemory = device.allocateMemory(
     vk::MemoryAllocateInfo(
       memRequirements.size,
-      Excal::Utils::findMemoryType(
+      Excal::Device::findMemoryType(
         physicalDevice, memRequirements.memoryTypeBits, properties
       )
     )

@@ -1,7 +1,5 @@
 #include "device.h"
 
-#include "utils.h"
-
 #include <vulkan/vulkan.hpp>
 #include <set>
 #include <map>
@@ -165,10 +163,10 @@ int rateDeviceSuitability(
     return 0;
   }
 
-  SwapChainSupportDetails swapChainSupport
-    = Excal::Utils::querySwapChainSupport(physicalDevice, surface);
-  if (   swapChainSupport.surfaceFormats.empty()
-      || swapChainSupport.presentModes.empty()
+  SwapchainSupportDetails swapchainSupport
+    = querySwapchainSupport(physicalDevice, surface);
+  if (   swapchainSupport.surfaceFormats.empty()
+      || swapchainSupport.presentModes.empty()
   ) {
     return 0;
   }
@@ -236,5 +234,35 @@ vk::SampleCountFlagBits getMaxUsableSampleCount(
   if (counts & vk::SampleCountFlagBits::e2)  { return vk::SampleCountFlagBits::e2;  }
 
   return vk::SampleCountFlagBits::e1;
+}
+
+SwapchainSupportDetails querySwapchainSupport(
+  const vk::PhysicalDevice& physicalDevice,
+  const vk::SurfaceKHR&     surface
+) {
+  SwapchainSupportDetails details;
+  details.presentModes        = physicalDevice.getSurfacePresentModesKHR(surface);
+  details.surfaceFormats      = physicalDevice.getSurfaceFormatsKHR(surface);
+  details.surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface);
+
+  return details;
+}
+
+uint32_t findMemoryType(
+  const vk::PhysicalDevice&      physicalDevice,
+  const uint32_t                 typeFilter,
+  const vk::MemoryPropertyFlags& properties
+) {
+  auto memProperties = physicalDevice.getMemoryProperties();
+
+  for (uint32_t i=0; i < memProperties.memoryTypeCount; i++) {
+    if (   typeFilter & (1 << i)
+        && (memProperties.memoryTypes[i].propertyFlags & properties) == properties
+    ) {
+      return i;
+    }
+  }
+
+  throw std::runtime_error("failed to find suitable memory type!");
 }
 }
