@@ -29,7 +29,7 @@ int main() {
     const uint32_t windowWidth  = 1440;
     const uint32_t windowHeight = 900;
 
-    const int maxFramesInFlight = 2;
+    const int maxFramesInFlight = 1;
 
     const std::string modelPath          = "../models/ivysaur.obj";
     const std::string diffuseTexturePath = "../textures/ivysaur_diffuse.jpg";
@@ -46,7 +46,10 @@ int main() {
     const auto validationLayers          = Excal::Debug::getValidationLayers();
     const auto debugMessengerCreateInfo  = Excal::Debug::getDebugMessengerCreateInfo();
 
-    auto window = Excal::Surface::initWindow(windowWidth, windowHeight);
+    bool framebufferResized = false;
+    auto window = Excal::Surface::initWindow(
+      &framebufferResized, windowWidth, windowHeight
+    );
 
     auto instance = Excal::Device::createInstance(
       validationLayersEnabled,
@@ -203,7 +206,10 @@ int main() {
       swapchainImageViews.size()
     );
 
-    auto descriptorPool = Excal::Descriptor::createDescriptorPool(device, swapchainImages.size());
+    auto descriptorPool = Excal::Descriptor::createDescriptorPool(
+      device, swapchainImages.size()
+    );
+
     auto descriptorSets = Excal::Descriptor::createDescriptorSets(
       device,
       swapchainImages.size(),
@@ -215,81 +221,50 @@ int main() {
     );
 
     auto commandBuffers = Excal::Buffer::createCommandBuffers(
-      device,
-      commandPool,
-      swapchainFramebuffers,
-      swapchainExtent,
-      modelData.indices.size(),
-      graphicsPipeline,
-      vertexBuffer,
-      indexBuffer,
-      renderPass,
-      descriptorSets,
-      pipelineLayout
+      device,          commandPool,              swapchainFramebuffers,
+      swapchainExtent, modelData.indices.size(), graphicsPipeline,
+      vertexBuffer,    indexBuffer,              renderPass,
+      descriptorSets,  pipelineLayout
     );
 
     // Main loop
     size_t currentFrame = 0;
-    bool framebufferResized = false;
 
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
       Excal::Frame::drawFrame(
         // Required for call to Excal::Swapchain::recreateSwpachain
         // but otherwise not for drawFrame()
-        window,          descriptorPool,       commandBuffers,
-        swapchain,       swapchainImageFormat, swapchainExtent,
-        swapchainImages, swapchainImageViews,  swapchainFramebuffers,
-        colorResources,  depthResources,       uniformBuffers,
-        physicalDevice,  surface,              msaaSamples,
-        depthFormat,     renderPass,           modelData.indices.size(),
-        commandPool,     graphicsPipeline,     vertexBuffer,
-        indexBuffer,     pipelineLayout,       descriptorSets,
+        window,                   descriptorPool,       commandBuffers,
+        swapchain,                swapchainImageFormat, swapchainExtent,
+        swapchainImages,          swapchainImageViews,  swapchainFramebuffers,
+        colorResources,           depthResources,       uniformBuffers,
+        renderPass,               graphicsPipeline,     pipelineLayout,
+        pipelineCache,            descriptorSets,       physicalDevice,
+        surface,                  msaaSamples,          depthFormat,
+        modelData.indices.size(), commandPool,          vertexBuffer,
+        indexBuffer,              descriptorSetLayout,  textureResources.imageView,
+        textureSampler,
 
         // Required for regular drawFrame() functionality
-        currentFrame,       uniformBuffersMemory,     imagesInFlight,
-        device,             graphicsQueue,            presentQueue,
-        inFlightFences,     imageAvailableSemaphores, renderFinishedSemaphores,
-        framebufferResized, maxFramesInFlight
+        currentFrame,             framebufferResized, uniformBuffersMemory,
+        imagesInFlight,           device,             graphicsQueue,
+        presentQueue,             inFlightFences,     imageAvailableSemaphores,
+        renderFinishedSemaphores, maxFramesInFlight
       );
     }
 
     device.waitIdle();
 
-    // Cleanup swapchain
-    device.destroyImageView(colorResources.imageView);
-    device.destroyImage(colorResources.image);
-    device.freeMemory(colorResources.imageMemory);
-
-    device.destroyImageView(depthResources.imageView);
-    device.destroyImage(depthResources.image);
-    device.freeMemory(depthResources.imageMemory);
-
-    for (auto framebuffer : swapchainFramebuffers) {
-      device.destroyFramebuffer(framebuffer);
-    }
-
-    device.freeCommandBuffers(commandPool, commandBuffers);
-
-    device.destroyDescriptorPool(descriptorPool);
-
-    device.destroyPipeline(graphicsPipeline);
-    device.destroyPipelineCache(pipelineCache);
-    device.destroyPipelineLayout(pipelineLayout);
-    device.destroyRenderPass(renderPass);
-
-    for (auto imageView : swapchainImageViews) {
-      device.destroyImageView(imageView);
-    }
-
-    for (size_t i=0; i < swapchainImages.size(); i++) {
-      device.destroyBuffer(uniformBuffers[i]);
-      device.freeMemory(uniformBuffersMemory[i]);
-    }
-
-    device.destroySwapchainKHR(swapchain);
-
     // Application cleanup
+    Excal::Swapchain::cleanupSwapchain(
+      device,                commandPool,          descriptorPool,
+      commandBuffers,        swapchain,            swapchainImageViews,
+      swapchainFramebuffers, colorResources,       depthResources,
+      uniformBuffers,        uniformBuffersMemory, renderPass,
+      graphicsPipeline,      pipelineCache,        pipelineLayout
+    );
+    
     for (size_t i=0; i < maxFramesInFlight; i++) {
       device.destroySemaphore(imageAvailableSemaphores[i]);
       device.destroySemaphore(renderFinishedSemaphores[i]);

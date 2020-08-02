@@ -6,15 +6,20 @@
 namespace Excal::Surface
 {
 GLFWwindow* initWindow(
+  bool *framebufferResized,
   const uint32_t windowWidth,
   const uint32_t windowHeight
 ) {
   glfwInit();
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Don't create OpenGL context
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-  return glfwCreateWindow(windowWidth, windowHeight, "Excal", nullptr, nullptr);
-  //glfwSetWindowUserPointer(window, this);
-  //glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+
+  auto window = glfwCreateWindow(windowWidth, windowHeight, "Excal", nullptr, nullptr);
+
+  glfwSetWindowUserPointer(window, framebufferResized);
+  glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+
+  return window;
 }
 
 vk::SurfaceKHR createSurface(
@@ -31,13 +36,9 @@ vk::SurfaceKHR createSurface(
   return vk::SurfaceKHR(vSurface);
 }
 
-// TODO Figure out how to pass the type ExcalApplication in
-//      and re-enable framebufferResizeCallback
-/*
 void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
-  auto app = static_cast<ExcalApplication*>(glfwGetWindowUserPointer(window));
-  app->framebufferResized = true;
+  auto framebufferResized = static_cast<bool*>(glfwGetWindowUserPointer(window));
+  *framebufferResized = true;
 }
-*/
 }

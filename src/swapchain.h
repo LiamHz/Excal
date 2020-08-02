@@ -31,6 +31,24 @@ vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
   const std::vector<vk::SurfaceFormatKHR>&
 );
 
+void cleanupSwapchain(
+  const vk::Device&               device,
+  const vk::CommandPool&          commandPool,
+  vk::DescriptorPool&             descriptorPool,
+  std::vector<vk::CommandBuffer>& commandBuffers,
+  vk::SwapchainKHR&               swapchain,
+  std::vector<vk::ImageView>&     swapchainImageViews,
+  std::vector<VkFramebuffer>&     swapchainFramebuffers,
+  Excal::Image::ImageResources&   colorResources,
+  Excal::Image::ImageResources&   depthResources,
+  std::vector<vk::Buffer>&        uniformBuffers,
+  std::vector<vk::DeviceMemory>&  uniformBuffersMemory,
+  vk::RenderPass&                 renderPass,
+  vk::Pipeline&                   graphicsPipeline,
+  vk::PipelineCache&              pipelineCache,
+  vk::PipelineLayout&             pipelineLayout
+);
+
 void recreateSwapchain(
   GLFWwindow*                           window,
   vk::DescriptorPool&                   descriptorPool,
@@ -45,18 +63,22 @@ void recreateSwapchain(
   Excal::Image::ImageResources&         depthResources,
   std::vector<vk::Buffer>&              uniformBuffers,
   std::vector<vk::DeviceMemory>&        uniformBuffersMemory,
+  vk::RenderPass&                       renderPass,
+  vk::Pipeline&                         graphicsPipeline,
+  vk::PipelineLayout&                   pipelineLayout,
+  vk::PipelineCache&                    pipelineCache,
+  std::vector<vk::DescriptorSet>&       descriptorSets,
   const vk::Device&                     device,
   const vk::PhysicalDevice&             physicalDevice,
   const vk::SurfaceKHR&                 surface,
   const vk::SampleCountFlagBits&        msaaSamples,
   const vk::Format&                     depthFormat,
-  const vk::RenderPass&                 renderPass,
   const int                             nIndices,
   const vk::CommandPool&                commandPool,
-  const vk::Pipeline&                   graphicsPipeline,
   const vk::Buffer&                     vertexBuffer,
   const vk::Buffer&                     indexBuffer,
-  const vk::PipelineLayout              pipelineLayout,
-  const std::vector<vk::DescriptorSet>& descriptorSets
+  const vk::DescriptorSetLayout&        descriptorSetLayout,
+  const vk::ImageView&                  textureImageView,
+  const vk::Sampler&                    textureSampler
 );
 }

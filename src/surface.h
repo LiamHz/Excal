@@ -6,8 +6,13 @@
 
 namespace Excal::Surface
 {
-GLFWwindow*    initWindow(const uint32_t windowWidth, const uint32_t windowHeight);
+GLFWwindow* initWindow(
+  bool *framebufferResized,
+  const uint32_t windowWidth,
+  const uint32_t windowHeight
+);
+
 vk::SurfaceKHR createSurface(const vk::Instance&, GLFWwindow*);
 
-//static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 }

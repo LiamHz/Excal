@@ -10,6 +10,7 @@
 #include "device.h"
 #include "buffer.h"
 #include "descriptor.h"
+#include "pipeline.h"
 
 namespace Excal::Swapchain
 {
@@ -123,6 +124,53 @@ vk::Extent2D chooseSwapExtent(
   }
 }
 
+void cleanupSwapchain(
+  const vk::Device&               device,
+  const vk::CommandPool&          commandPool,
+  vk::DescriptorPool&             descriptorPool,
+  std::vector<vk::CommandBuffer>& commandBuffers,
+  vk::SwapchainKHR&               swapchain,
+  std::vector<vk::ImageView>&     swapchainImageViews,
+  std::vector<VkFramebuffer>&     swapchainFramebuffers,
+  Excal::Image::ImageResources&   colorResources,
+  Excal::Image::ImageResources&   depthResources,
+  std::vector<vk::Buffer>&        uniformBuffers,
+  std::vector<vk::DeviceMemory>&  uniformBuffersMemory,
+  vk::RenderPass&                 renderPass,
+  vk::Pipeline&                   graphicsPipeline,
+  vk::PipelineCache&              pipelineCache,
+  vk::PipelineLayout&             pipelineLayout
+) {
+  device.destroyImageView(colorResources.imageView);
+  device.destroyImage(colorResources.image);
+  device.freeMemory(colorResources.imageMemory);
+
+  device.destroyImageView(depthResources.imageView);
+  device.destroyImage(depthResources.image);
+  device.freeMemory(depthResources.imageMemory);
+
+  for (auto framebuffer : swapchainFramebuffers) {
+    device.destroyFramebuffer(framebuffer);
+  }
+
+  device.freeCommandBuffers(commandPool, commandBuffers);
+
+  device.destroyDescriptorPool(descriptorPool);
+
+  device.destroyPipeline(graphicsPipeline);
+  device.destroyPipelineCache(pipelineCache);
+  device.destroyPipelineLayout(pipelineLayout);
+  device.destroyRenderPass(renderPass);
+
+  for (size_t i=0; i < swapchainImageViews.size(); i++) {
+    device.destroyImageView(swapchainImageViews[i]);
+    device.destroyBuffer(uniformBuffers[i]);
+    device.freeMemory(uniformBuffersMemory[i]);
+  }
+
+  device.destroySwapchainKHR(swapchain);
+}
+
 void recreateSwapchain(
   GLFWwindow*                           window,
   vk::DescriptorPool&                   descriptorPool,
@@ -137,19 +185,23 @@ void recreateSwapchain(
   Excal::Image::ImageResources&         depthResources,
   std::vector<vk::Buffer>&              uniformBuffers,
   std::vector<vk::DeviceMemory>&        uniformBuffersMemory,
+  vk::RenderPass&                       renderPass,
+  vk::Pipeline&                         graphicsPipeline,
+  vk::PipelineLayout&                   pipelineLayout,
+  vk::PipelineCache&                    pipelineCache,
+  std::vector<vk::DescriptorSet>&       descriptorSets,
   const vk::Device&                     device,
   const vk::PhysicalDevice&             physicalDevice,
   const vk::SurfaceKHR&                 surface,
   const vk::SampleCountFlagBits&        msaaSamples,
   const vk::Format&                     depthFormat,
-  const vk::RenderPass&                 renderPass,
   const int                             nIndices,
   const vk::CommandPool&                commandPool,
-  const vk::Pipeline&                   graphicsPipeline,
   const vk::Buffer&                     vertexBuffer,
   const vk::Buffer&                     indexBuffer,
-  const vk::PipelineLayout              pipelineLayout,
-  const std::vector<vk::DescriptorSet>& descriptorSets
+  const vk::DescriptorSetLayout&        descriptorSetLayout,
+  const vk::ImageView&                  textureImageView,
+  const vk::Sampler&                    textureSampler
 ) {
   // Handle widow minimization
   int width = 0, height = 0;
@@ -161,6 +213,14 @@ void recreateSwapchain(
   }
 
   device.waitIdle();
+
+  cleanupSwapchain(
+    device,                commandPool,          descriptorPool,
+    commandBuffers,        swapchain,            swapchainImageViews,
+    swapchainFramebuffers, colorResources,       depthResources,
+    uniformBuffers,        uniformBuffersMemory, renderPass,
+    graphicsPipeline,      pipelineCache,        pipelineLayout
+  );
 
   auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
 
@@ -186,6 +246,29 @@ void recreateSwapchain(
     physicalDevice,
     device,
     swapchainImageFormat,
+    swapchainExtent,
+    msaaSamples
+  );
+
+  renderPass = Excal::Pipeline::createRenderPass(
+    device,
+    depthFormat,
+    swapchainImageFormat,
+    msaaSamples
+  );
+
+  // TODO Fill in the create info
+  pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
+
+  pipelineLayout = device.createPipelineLayout(
+    vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 0, nullptr)
+  );
+
+  graphicsPipeline = Excal::Pipeline::createGraphicsPipeline(
+    device,
+    pipelineLayout,
+    pipelineCache,
+    renderPass,
     swapchainExtent,
     msaaSamples
   );
@@ -217,18 +300,21 @@ void recreateSwapchain(
 
   descriptorPool = Excal::Descriptor::createDescriptorPool(device, swapchainImages.size());
 
-  commandBuffers = Excal::Buffer::createCommandBuffers(
+  descriptorSets = Excal::Descriptor::createDescriptorSets(
     device,
-    commandPool,
-    swapchainFramebuffers,
-    swapchainExtent,
-    nIndices,
-    graphicsPipeline,
-    vertexBuffer,
-    indexBuffer,
-    renderPass,
-    descriptorSets,
-    pipelineLayout
+    swapchainImages.size(),
+    descriptorPool,
+    descriptorSetLayout,
+    uniformBuffers,
+    textureImageView,
+    textureSampler
+  );
+  
+  commandBuffers = Excal::Buffer::createCommandBuffers(
+    device,          commandPool, swapchainFramebuffers,
+    swapchainExtent, nIndices,    graphicsPipeline,
+    vertexBuffer,    indexBuffer, renderPass,
+    descriptorSets,  pipelineLayout
   );
 }
 }
