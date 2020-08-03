@@ -70,18 +70,6 @@ private:
   std::vector<vk::DeviceMemory>  uniformBuffersMemory;
   std::vector<VkFramebuffer>     swapchainFramebuffers;
 
-  // Set by Excal::Model
-  Excal::Model::ModelData modelData;
-
-  // Application config
-  int maxFramesInFlight = 3; // Triple buffering
-
-  uint32_t windowWidth  = 1440;
-  uint32_t windowHeight = 900;
-
-  std::string modelPath          = "../models/ivysaur.obj";
-  std::string diffuseTexturePath = "../textures/ivysaur_diffuse.jpg";
-
   //#define NDEBUG
   #ifdef NDEBUG
     const bool validationLayersEnabled = false;
@@ -89,8 +77,22 @@ private:
     const bool validationLayersEnabled = true;
   #endif
 
+  struct EngineConfig
+  {
+    Excal::Model::ModelData modelData;
+    std::string             modelDiffuseTexturePath;
+    std::string appName   = "Excal Test App";
+    int appVersion        = 1.0;
+    uint32_t windowWidth  = 1440;
+    uint32_t windowHeight = 900;
+    int maxFramesInFlight = 3; // Triple buffering
+  };
 
-  void init();
+  EngineConfig config;
+
+  int nIndices;
+
+  void initVulkan();
   void cleanup();
   void mainLoop();
 
@@ -98,5 +100,23 @@ public:
   Engine();
   ~Engine();
   int run();
+
+  EngineConfig createEngineConfig()
+  {
+    return EngineConfig{};
+  }
+
+  Excal::Model::ModelData loadModel(const std::string& modelPath)
+  {
+    return Excal::Model::loadModel(modelPath);
+  }
+
+  void init(const EngineConfig& _config)
+  {
+    config   = _config;
+    nIndices = _config.modelData.indices.size();
+
+    initVulkan();
+  }
 };
 }

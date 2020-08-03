@@ -8,13 +8,17 @@ namespace Excal::Surface
 GLFWwindow* initWindow(
   bool *framebufferResized,
   const uint32_t windowWidth,
-  const uint32_t windowHeight
+  const uint32_t windowHeight,
+  const char*    windowName
 ) {
   glfwInit();
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Don't create OpenGL context
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-  auto window = glfwCreateWindow(windowWidth, windowHeight, "Excal", nullptr, nullptr);
+  auto window = glfwCreateWindow(
+    windowWidth, windowHeight, windowName,
+    nullptr,     nullptr
+  );
 
   glfwSetWindowUserPointer(window, framebufferResized);
   glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);

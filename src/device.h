@@ -7,6 +7,7 @@
 namespace Excal::Device
 {
 vk::Instance createInstance(
+  const vk::ApplicationInfo&,
   const bool validationLayersEnabled,
   const bool validationLayersSupported,
   const std::vector<const char*>&,

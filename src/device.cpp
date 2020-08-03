@@ -8,6 +8,7 @@
 namespace Excal::Device
 {
 vk::Instance createInstance(
+  const vk::ApplicationInfo&                appInfo,
   const bool                                validationLayersEnabled,
   const bool                                validationLayersSupported,
   const std::vector<const char*>&           validationLayers,
@@ -16,8 +17,6 @@ vk::Instance createInstance(
   if (validationLayersEnabled && !validationLayersSupported) {
     throw std::runtime_error("validation layers requested, but not available!");
   }
-
-  vk::ApplicationInfo appInfo("Excal Test", 1, "Excal", 1, VK_API_VERSION_1_2);
 
   // Specify which global extensions to use
   auto extensions = getRequiredExtensions(validationLayersEnabled);

@@ -27,31 +27,37 @@
 
 namespace Excal
 {
-Engine::Engine()
-{
-  init();
-}
+Engine::Engine() {}
 
 Engine::~Engine()
 {
   cleanup();
 }
 
-void Engine::init()
+void Engine::initVulkan()
 {
-  // Application config
   // Debugger setup
   const bool validationLayersSupported = Excal::Debug::checkValidationLayerSupport();
   const auto validationLayers          = Excal::Debug::getValidationLayers();
   const auto debugMessengerCreateInfo  = Excal::Debug::getDebugMessengerCreateInfo();
 
-  modelData = Excal::Model::loadModel(modelPath);
-
   window = Excal::Surface::initWindow(
-    &framebufferResized, windowWidth, windowHeight
+    &framebufferResized,
+    config.windowWidth,
+    config.windowHeight,
+    config.appName.c_str()
+  );
+
+  vk::ApplicationInfo appInfo(
+    config.appName.c_str(),
+    config.appVersion,
+    "Excal",
+    1.0,
+    VK_API_VERSION_1_2
   );
 
   instance = Excal::Device::createInstance(
+    appInfo,
     validationLayersEnabled,
     validationLayersSupported,
     validationLayers,
@@ -91,12 +97,12 @@ void Engine::init()
   );
 
   // Create sync objects for each frame in flight
-  imageAvailableSemaphores.resize(maxFramesInFlight);
-  renderFinishedSemaphores.resize(maxFramesInFlight);
-  inFlightFences.resize(maxFramesInFlight);
-  imagesInFlight.resize(maxFramesInFlight);
+  imageAvailableSemaphores.resize(config.maxFramesInFlight);
+  renderFinishedSemaphores.resize(config.maxFramesInFlight);
+  inFlightFences.resize(config.maxFramesInFlight);
+  imagesInFlight.resize(config.maxFramesInFlight);
 
-  for (int i=0; i < maxFramesInFlight; i++)
+  for (int i=0; i < config.maxFramesInFlight; i++)
   {
     imageAvailableSemaphores[i] = device.createSemaphore({}, nullptr);
     renderFinishedSemaphores[i] = device.createSemaphore({}, nullptr);
@@ -153,7 +159,7 @@ void Engine::init()
   textureResources = Excal::Image::createTextureResources(
     physicalDevice, device,
     commandPool,    graphicsQueue,
-    diffuseTexturePath
+    config.modelDiffuseTexturePath
   );
 
   textureSampler = Excal::Image::createTextureImageSampler(
@@ -162,14 +168,14 @@ void Engine::init()
 
   vertexBuffer = Excal::Buffer::createVkBuffer(
     vertexBufferMemory, physicalDevice,
-    device,             modelData.vertices,
+    device,             config.modelData.vertices,
     vk::BufferUsageFlagBits::eVertexBuffer,
     commandPool,        graphicsQueue
   );
 
   indexBuffer = Excal::Buffer::createVkBuffer(
     indexBufferMemory, physicalDevice,
-    device,            modelData.indices,
+    device,            config.modelData.indices,
     vk::BufferUsageFlagBits::eIndexBuffer,
     commandPool,       graphicsQueue
   );
@@ -191,9 +197,9 @@ void Engine::init()
   );
 
   commandBuffers = Excal::Buffer::createCommandBuffers(
-    device,          commandPool,              swapchainFramebuffers,
-    swapchainExtent, modelData.indices.size(), graphicsPipeline,
-    vertexBuffer,    indexBuffer,              renderPass,
+    device,          commandPool,   swapchainFramebuffers,
+    swapchainExtent, nIndices,      graphicsPipeline,
+    vertexBuffer,    indexBuffer,   renderPass,
     descriptorSets,  pipelineLayout
   );
 }
@@ -208,22 +214,22 @@ void Engine::mainLoop()
     Excal::Frame::drawFrame(
       // Required for call to Excal::Swapchain::recreateSwpachain
       // but otherwise not for drawFrame()
-      window,                   descriptorPool,       commandBuffers,
-      swapchain,                swapchainImageFormat, swapchainExtent,
-      swapchainImages,          swapchainImageViews,  swapchainFramebuffers,
-      colorResources,           depthResources,       uniformBuffers,
-      renderPass,               graphicsPipeline,     pipelineLayout,
-      pipelineCache,            descriptorSets,       physicalDevice,
-      surface,                  msaaSamples,          depthFormat,
-      modelData.indices.size(), commandPool,          vertexBuffer,
-      indexBuffer,              descriptorSetLayout,  textureResources.imageView,
+      window,          descriptorPool,       commandBuffers,
+      swapchain,       swapchainImageFormat, swapchainExtent,
+      swapchainImages, swapchainImageViews,  swapchainFramebuffers,
+      colorResources,  depthResources,       uniformBuffers,
+      renderPass,      graphicsPipeline,     pipelineLayout,
+      pipelineCache,   descriptorSets,       physicalDevice,
+      surface,         msaaSamples,          depthFormat,
+      nIndices,        commandPool,          vertexBuffer,
+      indexBuffer,     descriptorSetLayout,  textureResources.imageView,
       textureSampler,
 
       // Required for regular drawFrame() functionality
-      currentFrame,             framebufferResized, uniformBuffersMemory,
-      imagesInFlight,           device,             graphicsQueue,
-      presentQueue,             inFlightFences,     imageAvailableSemaphores,
-      renderFinishedSemaphores, maxFramesInFlight
+      currentFrame,             framebufferResized,      uniformBuffersMemory,
+      imagesInFlight,           device,                  graphicsQueue,
+      presentQueue,             inFlightFences,          imageAvailableSemaphores,
+      renderFinishedSemaphores, config.maxFramesInFlight
     );
   }
 
@@ -240,7 +246,7 @@ void Engine::cleanup()
     graphicsPipeline,      pipelineCache,        pipelineLayout
   );
 
-  for (size_t i=0; i < maxFramesInFlight; i++)
+  for (size_t i=0; i < config.maxFramesInFlight; i++)
   {
     device.destroySemaphore(imageAvailableSemaphores[i]);
     device.destroySemaphore(renderFinishedSemaphores[i]);
