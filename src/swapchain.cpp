@@ -2,6 +2,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 #include <tuple>
 
@@ -126,28 +127,27 @@ vk::Extent2D chooseSwapExtent(
 
 void cleanupSwapchain(
   const vk::Device&               device,
+  VmaAllocator&                   allocator,
   const vk::CommandPool&          commandPool,
   vk::DescriptorPool&             descriptorPool,
   std::vector<vk::CommandBuffer>& commandBuffers,
   vk::SwapchainKHR&               swapchain,
   std::vector<vk::ImageView>&     swapchainImageViews,
   std::vector<VkFramebuffer>&     swapchainFramebuffers,
-  Excal::Image::ImageResources&   colorResources,
+  Excal::Image::ImageResources&  colorResources,
   Excal::Image::ImageResources&   depthResources,
   std::vector<vk::Buffer>&        uniformBuffers,
-  std::vector<vk::DeviceMemory>&  uniformBuffersMemory,
+  std::vector<VmaAllocation>&     uniformBufferAllocations,
   vk::RenderPass&                 renderPass,
   vk::Pipeline&                   graphicsPipeline,
   vk::PipelineCache&              pipelineCache,
   vk::PipelineLayout&             pipelineLayout
 ) {
   device.destroyImageView(colorResources.imageView);
-  device.destroyImage(colorResources.image);
-  device.freeMemory(colorResources.imageMemory);
-
   device.destroyImageView(depthResources.imageView);
-  device.destroyImage(depthResources.image);
-  device.freeMemory(depthResources.imageMemory);
+
+  vmaDestroyImage(allocator, colorResources.image, colorResources.imageAllocation);
+  vmaDestroyImage(allocator, depthResources.image, depthResources.imageAllocation);
 
   for (auto framebuffer : swapchainFramebuffers) {
     device.destroyFramebuffer(framebuffer);
@@ -164,44 +164,44 @@ void cleanupSwapchain(
 
   for (size_t i=0; i < swapchainImageViews.size(); i++) {
     device.destroyImageView(swapchainImageViews[i]);
-    device.destroyBuffer(uniformBuffers[i]);
-    device.freeMemory(uniformBuffersMemory[i]);
+    vmaDestroyBuffer(allocator, uniformBuffers[i], uniformBufferAllocations[i]);
   }
 
   device.destroySwapchainKHR(swapchain);
 }
 
 void recreateSwapchain(
-  GLFWwindow*                           window,
-  vk::DescriptorPool&                   descriptorPool,
-  std::vector<vk::CommandBuffer>&       commandBuffers,
-  vk::SwapchainKHR&                     swapchain,
-  vk::Format&                           swapchainImageFormat,
-  vk::Extent2D                          swapchainExtent,
-  std::vector<vk::Image>&               swapchainImages,
-  std::vector<vk::ImageView>&           swapchainImageViews,
-  std::vector<VkFramebuffer>&           swapchainFramebuffers,
-  Excal::Image::ImageResources&         colorResources,
-  Excal::Image::ImageResources&         depthResources,
-  std::vector<vk::Buffer>&              uniformBuffers,
-  std::vector<vk::DeviceMemory>&        uniformBuffersMemory,
-  vk::RenderPass&                       renderPass,
-  vk::Pipeline&                         graphicsPipeline,
-  vk::PipelineLayout&                   pipelineLayout,
-  vk::PipelineCache&                    pipelineCache,
-  std::vector<vk::DescriptorSet>&       descriptorSets,
-  const vk::Device&                     device,
-  const vk::PhysicalDevice&             physicalDevice,
-  const vk::SurfaceKHR&                 surface,
-  const vk::SampleCountFlagBits&        msaaSamples,
-  const vk::Format&                     depthFormat,
-  const int                             nIndices,
-  const vk::CommandPool&                commandPool,
-  const vk::Buffer&                     vertexBuffer,
-  const vk::Buffer&                     indexBuffer,
-  const vk::DescriptorSetLayout&        descriptorSetLayout,
-  const vk::ImageView&                  textureImageView,
-  const vk::Sampler&                    textureSampler
+  GLFWwindow*                     window,
+  vk::DescriptorPool&             descriptorPool,
+  std::vector<vk::CommandBuffer>& commandBuffers,
+  vk::SwapchainKHR&               swapchain,
+  vk::Format&                     swapchainImageFormat,
+  vk::Extent2D                    swapchainExtent,
+  std::vector<vk::Image>&         swapchainImages,
+  std::vector<vk::ImageView>&     swapchainImageViews,
+  std::vector<VkFramebuffer>&     swapchainFramebuffers,
+  Excal::Image::ImageResources&  colorResources,
+  Excal::Image::ImageResources&   depthResources,
+  std::vector<vk::Buffer>&        uniformBuffers,
+  std::vector<VmaAllocation>&     uniformBufferAllocations,
+  vk::RenderPass&                 renderPass,
+  vk::Pipeline&                   graphicsPipeline,
+  vk::PipelineLayout&             pipelineLayout,
+  vk::PipelineCache&              pipelineCache,
+  std::vector<vk::DescriptorSet>& descriptorSets,
+  const vk::Device&               device,
+  const vk::PhysicalDevice&       physicalDevice,
+  VmaAllocator&                   allocator,
+  const vk::SurfaceKHR&           surface,
+  const vk::SampleCountFlagBits&  msaaSamples,
+  const vk::Format&               depthFormat,
+  const vk::CommandPool&          commandPool,
+  const std::vector<uint32_t>&    indexCounts,
+  const vk::Buffer&               indexBuffer,
+  const vk::Buffer&               vertexBuffer,
+  const vk::DescriptorSetLayout&  descriptorSetLayout,
+  const vk::Sampler&              textureSampler,
+  const vk::ImageView&            textureImageView
 ) {
   // Handle widow minimization
   int width = 0, height = 0;
@@ -215,11 +215,12 @@ void recreateSwapchain(
   device.waitIdle();
 
   cleanupSwapchain(
-    device,                commandPool,          descriptorPool,
-    commandBuffers,        swapchain,            swapchainImageViews,
-    swapchainFramebuffers, colorResources,       depthResources,
-    uniformBuffers,        uniformBuffersMemory, renderPass,
-    graphicsPipeline,      pipelineCache,        pipelineLayout
+    device,              allocator,             commandPool,
+    descriptorPool,      commandBuffers,        swapchain,
+    swapchainImageViews, swapchainFramebuffers, colorResources,
+    depthResources,      uniformBuffers,        uniformBufferAllocations,
+    renderPass,          graphicsPipeline,      pipelineCache,
+    pipelineLayout
   );
 
   auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
@@ -239,15 +240,6 @@ void recreateSwapchain(
 
   swapchainImageViews = Excal::Image::createImageViews(
     device, swapchainImages, swapchainImageFormat
-  );
-
-  // Resource creation
-  colorResources = Excal::Image::createColorResources(
-    physicalDevice,
-    device,
-    swapchainImageFormat,
-    swapchainExtent,
-    msaaSamples
   );
 
   renderPass = Excal::Pipeline::createRenderPass(
@@ -273,12 +265,17 @@ void recreateSwapchain(
     msaaSamples
   );
 
+  // Resource creation
+  colorResources = Excal::Image::createColorResources(
+    physicalDevice,  device,
+    allocator,       swapchainImageFormat,
+    swapchainExtent, msaaSamples
+  );
+
   depthResources = Excal::Image::createDepthResources(
-    physicalDevice,
-    device,
-    depthFormat,
-    swapchainImageFormat,
-    swapchainExtent,
+    physicalDevice,       device,
+    allocator,            depthFormat,
+    swapchainImageFormat, swapchainExtent,
     msaaSamples
   );
 
@@ -292,10 +289,8 @@ void recreateSwapchain(
   );
 
   uniformBuffers = Excal::Buffer::createUniformBuffers(
-    uniformBuffersMemory,
-    physicalDevice,
-    device,
-    swapchainImageViews.size()
+    physicalDevice, device,
+    allocator,      uniformBufferAllocations
   );
 
   descriptorPool = Excal::Descriptor::createDescriptorPool(device, swapchainImages.size());
@@ -311,10 +306,10 @@ void recreateSwapchain(
   );
   
   commandBuffers = Excal::Buffer::createCommandBuffers(
-    device,          commandPool, swapchainFramebuffers,
-    swapchainExtent, nIndices,    graphicsPipeline,
-    vertexBuffer,    indexBuffer, renderPass,
-    descriptorSets,  pipelineLayout
+    device,          commandPool,      swapchainFramebuffers,
+    swapchainExtent, graphicsPipeline, pipelineLayout,
+    indexCounts,     indexBuffer,      vertexBuffer,
+    renderPass,      descriptorSets
   );
 }
 }

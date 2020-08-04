@@ -3,6 +3,9 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+
 #include <vulkan/vulkan.hpp>
 
 #include <algorithm>
@@ -80,6 +83,15 @@ void Engine::initVulkan()
 
   msaaSamples = Excal::Device::getMaxUsableSampleCount(physicalDevice);
 
+  // Initalize Vulkan Memory Allocator
+  VmaAllocatorCreateInfo allocatorInfo = {};
+
+  allocatorInfo.physicalDevice = physicalDevice;
+  allocatorInfo.device         = device;
+  allocatorInfo.instance       = instance;
+
+  vmaCreateAllocator(&allocatorInfo, &allocator);
+
   // Create swapchain and image views
   auto swapchainState = Excal::Swapchain::createSwapchain(
     physicalDevice, device,
@@ -139,15 +151,16 @@ void Engine::initVulkan()
   );
 
   colorResources = Excal::Image::createColorResources(
-    physicalDevice,       device,
-    swapchainImageFormat, swapchainExtent,
-    msaaSamples
+    physicalDevice,  device,
+    allocator,       swapchainImageFormat,
+    swapchainExtent, msaaSamples
   );
 
   depthResources = Excal::Image::createDepthResources(
-    physicalDevice,  device,
-    depthFormat,     swapchainImageFormat,
-    swapchainExtent, msaaSamples
+    physicalDevice,       device,
+    allocator,            depthFormat,
+    swapchainImageFormat, swapchainExtent,
+    msaaSamples
   );
 
   swapchainFramebuffers = Excal::Buffer::createFramebuffers(
@@ -158,31 +171,52 @@ void Engine::initVulkan()
 
   textureResources = Excal::Image::createTextureResources(
     physicalDevice, device,
-    commandPool,    graphicsQueue,
-    config.modelDiffuseTexturePath
+    allocator,      commandPool,
+    graphicsQueue,  config.modelDiffuseTexturePath
   );
 
   textureSampler = Excal::Image::createTextureImageSampler(
     device, textureResources.image
   );
 
-  vertexBuffer = Excal::Buffer::createVkBuffer(
-    vertexBufferMemory, physicalDevice,
-    device,             config.modelData.vertices,
-    vk::BufferUsageFlagBits::eVertexBuffer,
-    commandPool,        graphicsQueue
+  // Create vectors containing all model indices and vertices
+  std::vector<uint32_t> indices;
+  std::vector<Vertex>   vertices;
+
+  for (auto& model : config.models) {
+    // Make indices relative for each model
+    for (auto& index : model.indices) {
+      index += vertices.size();
+    }
+    indexCounts.push_back(model.indices.size());
+    indices.insert( indices.end(),  model.indices.begin(),  model.indices.end());
+    vertices.insert(vertices.end(), model.vertices.begin(), model.vertices.end());
+  }
+
+  // Create buffers with VMA
+  // Create single index buffer for all models
+  indexBuffer = Excal::Buffer::createVkBuffer(
+    allocator,      indexBufferAllocation,
+    physicalDevice, device,
+    indices,        commandPool,
+    graphicsQueue,
+    vk::BufferUsageFlagBits::eIndexBuffer
   );
 
-  indexBuffer = Excal::Buffer::createVkBuffer(
-    indexBufferMemory, physicalDevice,
-    device,            config.modelData.indices,
-    vk::BufferUsageFlagBits::eIndexBuffer,
-    commandPool,       graphicsQueue
+  // Create single vertex buffer for all models
+  vertexBuffer = Excal::Buffer::createVkBuffer(
+    allocator,      vertexBufferAllocation,
+    physicalDevice, device,
+    vertices,       commandPool,
+    graphicsQueue,
+    vk::BufferUsageFlagBits::eVertexBuffer
   );
+
+  uniformBufferAllocations.resize(swapchainImageViews.size());
 
   uniformBuffers = Excal::Buffer::createUniformBuffers(
-    uniformBuffersMemory, physicalDevice,
-    device,               swapchainImageViews.size()
+    physicalDevice, device,
+    allocator,      uniformBufferAllocations
   );
 
   descriptorPool = Excal::Descriptor::createDescriptorPool(
@@ -197,10 +231,10 @@ void Engine::initVulkan()
   );
 
   commandBuffers = Excal::Buffer::createCommandBuffers(
-    device,          commandPool,   swapchainFramebuffers,
-    swapchainExtent, nIndices,      graphicsPipeline,
-    vertexBuffer,    indexBuffer,   renderPass,
-    descriptorSets,  pipelineLayout
+    device,          commandPool,      swapchainFramebuffers,
+    swapchainExtent, graphicsPipeline, pipelineLayout,
+    indexCounts,     indexBuffer,      vertexBuffer,
+    renderPass,      descriptorSets
   );
 }
 
@@ -221,15 +255,15 @@ void Engine::mainLoop()
       renderPass,      graphicsPipeline,     pipelineLayout,
       pipelineCache,   descriptorSets,       physicalDevice,
       surface,         msaaSamples,          depthFormat,
-      nIndices,        commandPool,          vertexBuffer,
-      indexBuffer,     descriptorSetLayout,  textureResources.imageView,
-      textureSampler,
+      commandPool,     indexCounts,          indexBuffer,
+      vertexBuffer,    descriptorSetLayout,  textureSampler,
+      textureResources.imageView, 
 
       // Required for regular drawFrame() functionality
-      currentFrame,             framebufferResized,      uniformBuffersMemory,
-      imagesInFlight,           device,                  graphicsQueue,
-      presentQueue,             inFlightFences,          imageAvailableSemaphores,
-      renderFinishedSemaphores, config.maxFramesInFlight
+      currentFrame,             framebufferResized,       allocator,
+      uniformBufferAllocations, imagesInFlight,           device,
+      graphicsQueue,            presentQueue,             inFlightFences,
+      imageAvailableSemaphores, renderFinishedSemaphores, config.maxFramesInFlight
     );
   }
 
@@ -239,15 +273,15 @@ void Engine::mainLoop()
 void Engine::cleanup()
 {
   Excal::Swapchain::cleanupSwapchain(
-    device,                commandPool,          descriptorPool,
-    commandBuffers,        swapchain,            swapchainImageViews,
-    swapchainFramebuffers, colorResources,       depthResources,
-    uniformBuffers,        uniformBuffersMemory, renderPass,
-    graphicsPipeline,      pipelineCache,        pipelineLayout
+    device,              allocator,             commandPool,
+    descriptorPool,      commandBuffers,        swapchain,
+    swapchainImageViews, swapchainFramebuffers, colorResources,
+    depthResources,      uniformBuffers,        uniformBufferAllocations,
+    renderPass,          graphicsPipeline,      pipelineCache,
+    pipelineLayout
   );
 
-  for (size_t i=0; i < config.maxFramesInFlight; i++)
-  {
+  for (size_t i=0; i < config.maxFramesInFlight; i++) {
     device.destroySemaphore(imageAvailableSemaphores[i]);
     device.destroySemaphore(renderFinishedSemaphores[i]);
     device.destroyFence(inFlightFences[i]);
@@ -255,16 +289,15 @@ void Engine::cleanup()
 
   device.destroyDescriptorSetLayout(descriptorSetLayout);
 
-  device.destroyBuffer(indexBuffer);
-  device.freeMemory(indexBufferMemory);
-
-  device.destroyBuffer(vertexBuffer);
-  device.freeMemory(vertexBufferMemory);
-
   device.destroySampler(textureSampler);
   device.destroyImageView(textureResources.imageView);
-  device.destroyImage(textureResources.image);
-  device.freeMemory(textureResources.imageMemory);
+
+  vmaDestroyBuffer(allocator, indexBuffer, indexBufferAllocation);
+  vmaDestroyBuffer(allocator, vertexBuffer, vertexBufferAllocation);
+
+  vmaDestroyImage(allocator, textureResources.image, textureResources.imageAllocation);
+
+  vmaDestroyAllocator(allocator);
 
   device.destroyCommandPool(commandPool);
   device.destroy();

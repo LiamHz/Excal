@@ -1,12 +1,16 @@
 #pragma once
 
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
+
 #include <vector>
 
 namespace Excal::Buffer
 {
 vk::Buffer createBuffer(
-  vk::DeviceMemory&              bufferMemory,
+  VmaAllocator&                  allocator,
+  VmaAllocation&                 bufferAllocation,
+  VmaAllocationCreateInfo&       allocInfo,
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
   const vk::DeviceSize&          bufferSize,
@@ -19,13 +23,13 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
   const vk::CommandPool&                commandPool,
   const std::vector<VkFramebuffer>&     swapchainFramebuffers,
   const vk::Extent2D                    swapchainExtent,
-  const uint32_t                        nIndices,
   const vk::Pipeline&                   graphicsPipeline,
-  const vk::Buffer&                     vertexBuffer,
+  const vk::PipelineLayout&             pipelineLayout,
+  const std::vector<uint32_t>&          indexCounts,
   const vk::Buffer&                     indexBuffer,
+  const vk::Buffer&                     vertexBuffer,
   const vk::RenderPass&                 renderPass,
-  const std::vector<vk::DescriptorSet>& descriptorSets,
-  const vk::PipelineLayout&             pipelineLayout
+  const std::vector<vk::DescriptorSet>& descriptorSets
 );
 
 std::vector<VkFramebuffer> createFramebuffers(
@@ -38,17 +42,18 @@ std::vector<VkFramebuffer> createFramebuffers(
 );
 
 std::vector<vk::Buffer> createUniformBuffers(
-  std::vector<vk::DeviceMemory>& uniformBuffersMemory,
-  const vk::PhysicalDevice&      physicalDevice,
-  const vk::Device&              device,
-  const int                      nBuffers
+  const vk::PhysicalDevice&   physicalDevice,
+  const vk::Device&           device,
+  VmaAllocator&               allocator,
+  std::vector<VmaAllocation>& bufferAllocations
 );
 
 void updateUniformBuffer(
-  std::vector<vk::DeviceMemory>& uniformBuffersMemory,
-  const vk::Device&              device,
-  const vk::Extent2D&            swapchainExtent,
-  const uint32_t                 currentImage
+  VmaAllocator&               allocator,
+  std::vector<VmaAllocation>& uniformBufferAllocations,
+  const vk::Device&           device,
+  const vk::Extent2D&         swapchainExtent,
+  const uint32_t              currentImage
 );
 
 vk::CommandBuffer beginSingleTimeCommands(
@@ -68,39 +73,43 @@ void endSingleTimeCommands(
 // **Template functions in namespaces have to be defined in the header file**
 template <typename T>
 vk::Buffer createVkBuffer(
-  vk::DeviceMemory&              bufferMemory,
+  VmaAllocator&                  allocator,
+  VmaAllocation&                 bufferAllocation,
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
   const std::vector<T>&          data,
-  const vk::BufferUsageFlagBits& usage,
   const vk::CommandPool&         commandPool,
-  const vk::Queue&               cmdQueue
+  const vk::Queue&               cmdQueue,
+  const vk::BufferUsageFlagBits& usage
 ) {
   vk::DeviceSize bufferSize = sizeof(data[0]) * data.size();
 
   // Staging buffer is on the CPU
-  vk::DeviceMemory stagingBufferMemory;
+  VmaAllocationCreateInfo stagingAllocInfo = {};
+  stagingAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 
-  auto stagingBuffer = createBuffer(
-    stagingBufferMemory,
-    physicalDevice,
-    device,
-    bufferSize,
+  VmaAllocation stagingBufferAllocation;
+
+  auto stagingBuffer = Excal::Buffer::createBuffer(
+    allocator,      stagingBufferAllocation, stagingAllocInfo,
+    physicalDevice, device,                  bufferSize,
     vk::BufferUsageFlagBits::eTransferSrc,
       vk::MemoryPropertyFlagBits::eHostVisible
     | vk::MemoryPropertyFlagBits::eHostCoherent
   );
 
-  void* memData = device.mapMemory(stagingBufferMemory, 0, bufferSize);
-  memcpy(memData, data.data(), (size_t) bufferSize);
-  device.unmapMemory(stagingBufferMemory);
+  void* mappedData;
+  vmaMapMemory(allocator, stagingBufferAllocation, &mappedData);
+  memcpy(mappedData, data.data(), (size_t) bufferSize);
+  vmaUnmapMemory(allocator, stagingBufferAllocation);
 
   // Create buffer on the GPU (device visible)
+  VmaAllocationCreateInfo allocInfo = {};
+  allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
   auto buffer = createBuffer(
-    bufferMemory,
-    physicalDevice,
-    device,
-    bufferSize,
+    allocator,      bufferAllocation, allocInfo,
+    physicalDevice, device,           bufferSize,
     vk::BufferUsageFlagBits::eTransferDst | usage,
     vk::MemoryPropertyFlagBits::eDeviceLocal
   );
@@ -113,9 +122,7 @@ vk::Buffer createVkBuffer(
 
   endSingleTimeCommands(device, cmd, commandPool, cmdQueue);
 
-  // Free resources
-  device.destroyBuffer(stagingBuffer);
-  device.freeMemory(stagingBufferMemory);
+  vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
 
   return buffer;
 }

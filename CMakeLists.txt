@@ -18,7 +18,12 @@ find_package(glfw3 3.3 REQUIRED)
 
 if (VULKAN_FOUND)
   message(STATUS "Found Vulkan, Including and Linking now")
-  include_directories(${Vulkan_INCLUDE_DIRS} "${lib_path}stb" "${lib_path}tinyobjloader")
+  include_directories(
+    ${Vulkan_INCLUDE_DIRS}
+    "${lib_path}stb"
+    "${lib_path}tinyobjloader"
+    "${lib_path}vulkan-memory-allocator"
+  )
 	target_link_libraries (${PROJECT_NAME} ${Vulkan_LIBRARIES} glfw)
 endif (VULKAN_FOUND)
 

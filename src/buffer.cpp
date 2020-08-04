@@ -1,9 +1,5 @@
 #include "buffer.h"
 
-#include <vulkan/vulkan.hpp>
-#include <vector>
-#include <chrono>
-
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -11,36 +7,39 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <vk_mem_alloc.h>
+#include <vulkan/vulkan.hpp>
+
+#include <vector>
+#include <chrono>
 
 #include "device.h"
 #include "structs.h"
+#include "model.h"
 
 namespace Excal::Buffer
 {
 vk::Buffer createBuffer(
-  vk::DeviceMemory&              bufferMemory,
+  VmaAllocator&                  allocator,
+  VmaAllocation&                 bufferAllocation,
+  VmaAllocationCreateInfo&       allocInfo,
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
   const vk::DeviceSize&          bufferSize,
   const vk::BufferUsageFlags&    usage,
   const vk::MemoryPropertyFlags& properties
 ) {
-  auto buffer = device.createBuffer(
-    vk::BufferCreateInfo({}, bufferSize, usage, vk::SharingMode::eExclusive)
-  );
-
-  auto memRequirements = device.getBufferMemoryRequirements(buffer);
-
-  bufferMemory = device.allocateMemory(
-    vk::MemoryAllocateInfo(
-      memRequirements.size,
-      Excal::Device::findMemoryType(
-        physicalDevice, memRequirements.memoryTypeBits, properties
-      )
+  auto bufferCreateInfo = static_cast<VkBufferCreateInfo>(
+    vk::BufferCreateInfo(
+      {}, bufferSize, usage, vk::SharingMode::eExclusive
     )
   );
 
-  device.bindBufferMemory(buffer, bufferMemory, 0);
+  VkBuffer buffer;
+  vmaCreateBuffer(
+    allocator, &bufferCreateInfo, &allocInfo,
+    &buffer,   &bufferAllocation, nullptr
+  );
 
   return buffer;
 }
@@ -50,13 +49,13 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
   const vk::CommandPool&                commandPool,
   const std::vector<VkFramebuffer>&     swapchainFramebuffers,
   const vk::Extent2D                    swapchainExtent,
-  const uint32_t                        nIndices,
   const vk::Pipeline&                   graphicsPipeline,
-  const vk::Buffer&                     vertexBuffer,
+  const vk::PipelineLayout&             pipelineLayout,
+  const std::vector<uint32_t>&          indexCounts,
   const vk::Buffer&                     indexBuffer,
+  const vk::Buffer&                     vertexBuffer,
   const vk::RenderPass&                 renderPass,
-  const std::vector<vk::DescriptorSet>& descriptorSets,
-  const vk::PipelineLayout&             pipelineLayout
+  const std::vector<vk::DescriptorSet>& descriptorSets
 ) {
   std::vector<vk::CommandBuffer> commandBuffers(swapchainFramebuffers.size());
 
@@ -90,10 +89,9 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
 
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
-    vk::Buffer vertexBuffers[] = {vertexBuffer};
     vk::DeviceSize offsets[] = {0};
 
-    cmd.bindVertexBuffers(0, 1, vertexBuffers, offsets);
+    cmd.bindVertexBuffers(0, 1, &vertexBuffer, offsets);
     cmd.bindIndexBuffer(indexBuffer, 0, vk::IndexType::eUint32);
 
     cmd.bindDescriptorSets(
@@ -102,7 +100,12 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
       &descriptorSets[i], 0, nullptr
     );
 
-    cmd.drawIndexed(nIndices, 1, 0, 0, 0);
+    uint32_t offset = 0;
+
+    for (auto& indexCount : indexCounts) {
+      cmd.drawIndexed(indexCount, 1, offset, 0, 0);
+      offset += indexCount;
+    }
 
     cmd.endRenderPass();
     cmd.end();
@@ -142,23 +145,22 @@ std::vector<VkFramebuffer> createFramebuffers(
 }
 
 std::vector<vk::Buffer> createUniformBuffers(
-  std::vector<vk::DeviceMemory>& uniformBuffersMemory,
-  const vk::PhysicalDevice&      physicalDevice,
-  const vk::Device&              device,
-  const int                      nBuffers
+  const vk::PhysicalDevice&   physicalDevice,
+  const vk::Device&           device,
+  VmaAllocator&               allocator,
+  std::vector<VmaAllocation>& bufferAllocations
 ) {
   vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
 
-  uniformBuffersMemory.resize(nBuffers);
+  std::vector<vk::Buffer> uniformBuffers(bufferAllocations.size());
 
-  std::vector<vk::Buffer> uniformBuffers(nBuffers);
+  VmaAllocationCreateInfo allocInfo = {};
+  allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 
-  for (size_t i=0; i < nBuffers; i++) {
+  for (size_t i=0; i < bufferAllocations.size(); i++) {
     uniformBuffers[i] = Excal::Buffer::createBuffer(
-      uniformBuffersMemory[i],
-      physicalDevice,
-      device,
-      bufferSize,
+      allocator,      bufferAllocations[i], allocInfo,
+      physicalDevice, device,               bufferSize,
       vk::BufferUsageFlagBits::eUniformBuffer,
         vk::MemoryPropertyFlagBits::eHostVisible
       | vk::MemoryPropertyFlagBits::eHostCoherent
@@ -169,10 +171,11 @@ std::vector<vk::Buffer> createUniformBuffers(
 }
 
 void updateUniformBuffer(
-  std::vector<vk::DeviceMemory>& uniformBuffersMemory,
-  const vk::Device&              device,
-  const vk::Extent2D&            swapchainExtent,
-  const uint32_t                 currentImage
+  VmaAllocator&               allocator,
+  std::vector<VmaAllocation>& uniformBufferAllocations,
+  const vk::Device&           device,
+  const vk::Extent2D&         swapchainExtent,
+  const uint32_t              currentImage
 ) {
   static auto startTime = std::chrono::high_resolution_clock::now();
   auto currentTime      = std::chrono::high_resolution_clock::now();
@@ -197,9 +200,9 @@ void updateUniformBuffer(
   ubo.model = uboRotation * uboTranslation;
 
   ubo.view = glm::lookAt(
-    glm::vec3(0.0f, 1.0f, 3.0f), // Eye position
-    glm::vec3(0.0f),            // Center position
-    glm::vec3(0.0f, 1.0f, 0.0f) // Up Axis
+    glm::vec3(0.0f, 1.0f, 5.0f), // Eye position
+    glm::vec3(0.0f),             // Center position
+    glm::vec3(0.0f, 1.0f, 0.0f)  // Up Axis
   );
 
   ubo.proj = glm::perspective(
@@ -211,9 +214,10 @@ void updateUniformBuffer(
   // Invert Y axis to acccount for difference between OpenGL and Vulkan
   ubo.proj[1][1] *= -1;
 
-  void* data = device.mapMemory(uniformBuffersMemory[currentImage], 0, sizeof(ubo));
-  memcpy(data, &ubo, sizeof(ubo));
-  device.unmapMemory(uniformBuffersMemory[currentImage]);
+  void* mappedData;
+  vmaMapMemory(allocator, uniformBufferAllocations[currentImage], &mappedData);
+  memcpy(mappedData, &ubo, sizeof(ubo));
+  vmaUnmapMemory(allocator, uniformBufferAllocations[currentImage]);
 }
 
 vk::CommandBuffer beginSingleTimeCommands(

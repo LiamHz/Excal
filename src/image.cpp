@@ -134,7 +134,9 @@ void copyBufferToImage(
 }
 
 vk::Image createImage(
-  vk::DeviceMemory&                 imageMemory,
+  VmaAllocator&                     allocator,
+  VmaAllocation&                    imageAllocation,
+  VmaAllocationCreateInfo&          allocInfo,
   const vk::PhysicalDevice&         physicalDevice,
   const vk::Device&                 device,
   const uint32_t                    width,
@@ -145,7 +147,7 @@ vk::Image createImage(
   const vk::ImageUsageFlags&        usage,
   const vk::MemoryPropertyFlagBits& properties
 ) {
-  auto image = device.createImage(
+  auto imageCreateInfo = static_cast<VkImageCreateInfo>(
     vk::ImageCreateInfo(
       {}, vk::ImageType::e2D, format,
       vk::Extent3D(width, height, 1), 1, 1,
@@ -155,18 +157,11 @@ vk::Image createImage(
     )
   );
 
-  auto memRequirements = device.getImageMemoryRequirements(image);
-
-  imageMemory = device.allocateMemory(
-    vk::MemoryAllocateInfo(
-      memRequirements.size,
-      Excal::Device::findMemoryType(
-        physicalDevice, memRequirements.memoryTypeBits, properties
-      )
-    )
+  VkImage image;
+  vmaCreateImage(
+    allocator, &imageCreateInfo, &allocInfo,
+    &image,    &imageAllocation,  nullptr
   );
-
-  device.bindImageMemory(image, imageMemory, 0);
 
   return image;
 }
@@ -174,6 +169,7 @@ vk::Image createImage(
 ImageResources createColorResources(
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
+  VmaAllocator&                  allocator,
   const vk::Format&              swapchainImageFormat,
   const vk::Extent2D&            swapchainExtent,
   const vk::SampleCountFlagBits& msaaSamples
@@ -181,14 +177,15 @@ ImageResources createColorResources(
   ImageResources colorResources;
   vk::Format colorFormat = swapchainImageFormat;
 
+  VmaAllocationCreateInfo allocInfo = {};
+  allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
   colorResources.image = createImage(
-    colorResources.imageMemory,
-    physicalDevice,
-    device,
-    swapchainExtent.width,
-    swapchainExtent.height,
-    msaaSamples,
-    swapchainImageFormat,
+    allocator,             colorResources.imageAllocation,
+    allocInfo,
+    physicalDevice,        device,
+    swapchainExtent.width, swapchainExtent.height,
+    msaaSamples,           swapchainImageFormat,
     vk::ImageTiling::eOptimal,
       vk::ImageUsageFlagBits::eTransientAttachment
     | vk::ImageUsageFlagBits::eColorAttachment,
@@ -208,6 +205,7 @@ ImageResources createColorResources(
 ImageResources createDepthResources(
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
+  VmaAllocator&                  allocator,
   const vk::Format&              depthFormat,
   const vk::Format&              swapchainImageFormat,
   const vk::Extent2D&            swapchainExtent,
@@ -215,14 +213,15 @@ ImageResources createDepthResources(
 ) {
   ImageResources depthResources;
 
+  VmaAllocationCreateInfo allocInfo = {};
+  allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
   depthResources.image = createImage(
-    depthResources.imageMemory,
-    physicalDevice,
-    device,
-    swapchainExtent.width,
-    swapchainExtent.height,
-    msaaSamples,
-    depthFormat,
+    allocator,             depthResources.imageAllocation,
+    allocInfo,
+    physicalDevice,        device,
+    swapchainExtent.width, swapchainExtent.height,
+    msaaSamples,           depthFormat,
     vk::ImageTiling::eOptimal,
     vk::ImageUsageFlagBits::eDepthStencilAttachment,
     vk::MemoryPropertyFlagBits::eDeviceLocal
@@ -241,6 +240,7 @@ ImageResources createDepthResources(
 ImageResources createTextureResources(
   const vk::PhysicalDevice& physicalDevice,
   const vk::Device&         device,
+  VmaAllocator&             allocator,
   const vk::CommandPool&    commandPool,
   const vk::Queue&          graphicsQueue,
   const std::string&        texturePath
@@ -259,35 +259,36 @@ ImageResources createTextureResources(
   }
 
   // Staging buffer is on the CPU
-  vk::DeviceMemory stagingBufferMemory;
+  VmaAllocationCreateInfo stagingAllocInfo = {};
+  stagingAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+  VmaAllocation stagingBufferAllocation;
 
   auto stagingBuffer = Excal::Buffer::createBuffer(
-    stagingBufferMemory,
-    physicalDevice,
-    device,
-    imageSize,
+    allocator,      stagingBufferAllocation, stagingAllocInfo,
+    physicalDevice, device,                  imageSize,
     vk::BufferUsageFlagBits::eTransferSrc,
       vk::MemoryPropertyFlagBits::eHostVisible
     | vk::MemoryPropertyFlagBits::eHostCoherent
   );
 
-  void* data = device.mapMemory(stagingBufferMemory, 0, imageSize);
-  memcpy(data, pixels, (size_t) imageSize);
-  device.unmapMemory(stagingBufferMemory);
+  void* mappedData;
+  vmaMapMemory(allocator, stagingBufferAllocation, &mappedData);
+  memcpy(mappedData, pixels, (size_t) imageSize);
+  vmaUnmapMemory(allocator, stagingBufferAllocation);
 
   stbi_image_free(pixels);
 
-  vk::Image        textureImage;
-  vk::DeviceMemory textureImageMemory;
-
   ImageResources textureResources;
 
+  VmaAllocationCreateInfo allocInfo = {};
+  allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
   textureResources.image = createImage(
-    textureResources.imageMemory,
-    physicalDevice,
-    device,
-    texWidth,
-    texHeight,
+    allocator,      textureResources.imageAllocation,
+    allocInfo,
+    physicalDevice, device,
+    texWidth,       texHeight,
     vk::SampleCountFlagBits::e1,  // TODO
     vk::Format::eR8G8B8A8Srgb,
     vk::ImageTiling::eOptimal,
@@ -326,8 +327,7 @@ ImageResources createTextureResources(
     vk::ImageLayout::eShaderReadOnlyOptimal
   );
 
-  device.destroyBuffer(stagingBuffer);
-  device.freeMemory(stagingBufferMemory);
+  vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
 
   textureResources.imageView = createImageView(
     device,

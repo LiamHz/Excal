@@ -14,6 +14,13 @@
 #include <optional>
 #include <vector>
 
+// TODO Move structs inside of Excal::Structs namespace
+struct MvpMatrix {
+  glm::mat4 model;
+  glm::mat4 view;
+  glm::mat4 projection;
+};
+
 struct QueueFamilyIndices {
   std::optional<uint32_t> graphicsFamily;
   std::optional<uint32_t> presentFamily;

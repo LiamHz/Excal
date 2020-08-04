@@ -1,11 +1,22 @@
 #pragma once
 
+// Silence Clang warnings for VMA
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-compare"
+#pragma clang diagnostic ignored "-Wunused-private-field"
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wnullability-completeness"
+
+#include <vk_mem_alloc.h>
+
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
 #include <vector>
 
 #include "image.h"
 #include "model.h"
+#include "structs.h"
 
 namespace Excal
 {
@@ -60,15 +71,19 @@ private:
   std::vector<vk::DescriptorSet> descriptorSets;
 
   // Set by Excal::Buffer
+  std::vector<uint32_t>          indexCounts;
   vk::Buffer                     indexBuffer;
   vk::Buffer                     vertexBuffer;
-  vk::DeviceMemory               indexBufferMemory;
-  vk::DeviceMemory               vertexBufferMemory;
   vk::CommandPool                commandPool;
   std::vector<vk::CommandBuffer> commandBuffers;
   std::vector<vk::Buffer>        uniformBuffers;
-  std::vector<vk::DeviceMemory>  uniformBuffersMemory;
   std::vector<VkFramebuffer>     swapchainFramebuffers;
+
+  // Set by Vulkan Memory Allocator
+  VmaAllocator               allocator;
+  VmaAllocation              indexBufferAllocation;
+  VmaAllocation              vertexBufferAllocation;
+  std::vector<VmaAllocation> uniformBufferAllocations;
 
   //#define NDEBUG
   #ifdef NDEBUG
@@ -77,9 +92,8 @@ private:
     const bool validationLayersEnabled = true;
   #endif
 
-  struct EngineConfig
-  {
-    Excal::Model::ModelData modelData;
+  struct EngineConfig {
+    std::vector<Excal::Model::Model> models;
     std::string             modelDiffuseTexturePath;
     std::string appName   = "Excal Test App";
     int appVersion        = 1.0;
@@ -89,8 +103,6 @@ private:
   };
 
   EngineConfig config;
-
-  int nIndices;
 
   void initVulkan();
   void cleanup();
@@ -106,16 +118,21 @@ public:
     return EngineConfig{};
   }
 
-  Excal::Model::ModelData loadModel(const std::string& modelPath)
-  {
-    return Excal::Model::loadModel(modelPath);
+  Excal::Model::Model createModel(
+    const std::string& modelPath,
+    const std::string& texturePath,
+    const float        vertexOffset
+    //const MvpMatrix&   mvpMatrix
+  ) {
+    return Excal::Model::createModel(
+      modelPath, texturePath, vertexOffset,
+      MvpMatrix { glm::mat4(1.0), glm::mat4(1.0), glm::mat4(1.0) }
+    );
   }
 
   void init(const EngineConfig& _config)
   {
-    config   = _config;
-    nIndices = _config.modelData.indices.size();
-
+    config = _config;
     initVulkan();
   }
 };

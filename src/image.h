@@ -1,13 +1,14 @@
 #pragma once
 
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 
 namespace Excal::Image
 {
-struct ImageResources {
-  vk::Image        image;
-  vk::DeviceMemory imageMemory;
-  vk::ImageView    imageView;
+struct ImageResources  {
+  vk::Image     image;
+  VmaAllocation imageAllocation;
+  vk::ImageView imageView;
 };
 
 vk::ImageView createImageView(
@@ -44,9 +45,11 @@ void copyBufferToImage(
 );
 
 vk::Image createImage(
-  vk::DeviceMemory&                 imageMemory,
-  const vk::Device&                 device,
+  VmaAllocator&                     allocator,
+  VmaAllocation&                    imageAllocation,
+  VmaAllocationCreateInfo&          allocInfo,
   const vk::PhysicalDevice&         physicalDevice,
+  const vk::Device&                 device,
   const uint32_t                    width,
   const uint32_t                    height,
   const vk::SampleCountFlagBits&    numSamples,
@@ -59,6 +62,7 @@ vk::Image createImage(
 ImageResources createColorResources(
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
+  VmaAllocator&                  allocator,
   const vk::Format&              swapchainImageFormat,
   const vk::Extent2D&            swapchainExtent,
   const vk::SampleCountFlagBits& msaaSamples
@@ -67,6 +71,7 @@ ImageResources createColorResources(
 ImageResources createDepthResources(
   const vk::PhysicalDevice&      physicalDevice,
   const vk::Device&              device,
+  VmaAllocator&                  allocator,
   const vk::Format&              depthFormat,
   const vk::Format&              swapchainImageFormat,
   const vk::Extent2D&            swapchainExtent,
@@ -76,6 +81,7 @@ ImageResources createDepthResources(
 ImageResources createTextureResources(
   const vk::PhysicalDevice& physicalDevice,
   const vk::Device&         device,
+  VmaAllocator&             allocator,
   const vk::CommandPool&    commandPool,
   const vk::Queue&          graphicsQueue,
   const std::string&        texturePath

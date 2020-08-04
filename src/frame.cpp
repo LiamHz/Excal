@@ -2,6 +2,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 
 #include "swapchain.h"
@@ -13,39 +14,40 @@ namespace Excal::Frame
 void drawFrame(
   // Required for call to Excal::Swapchain::recreateSwapchain()
   // but otherwise not for drawFrame()
-  GLFWwindow*                           window,
-  vk::DescriptorPool&                   descriptorPool,
-  std::vector<vk::CommandBuffer>&       commandBuffers,
-  vk::SwapchainKHR&                     swapchain,
-  vk::Format&                           swapchainImageFormat,
-  vk::Extent2D                          swapchainExtent,
-  std::vector<vk::Image>&               swapchainImages,
-  std::vector<vk::ImageView>&           swapchainImageViews,
-  std::vector<VkFramebuffer>&           swapchainFramebuffers,
-  Excal::Image::ImageResources&         colorResources,
-  Excal::Image::ImageResources&         depthResources,
-  std::vector<vk::Buffer>&              uniformBuffers,
-  vk::RenderPass&                       renderPass,
-  vk::Pipeline&                         graphicsPipeline,
-  vk::PipelineLayout&                   pipelineLayout,
-  vk::PipelineCache&                    pipelineCache,
-  std::vector<vk::DescriptorSet>&       descriptorSets,
-  const vk::PhysicalDevice&             physicalDevice,
-  const vk::SurfaceKHR&                 surface,
-  const vk::SampleCountFlagBits&        msaaSamples,
-  const vk::Format&                     depthFormat,
-  const int                             nIndices,
-  const vk::CommandPool&                commandPool,
-  const vk::Buffer&                     vertexBuffer,
-  const vk::Buffer&                     indexBuffer,
-  const vk::DescriptorSetLayout&        descriptorSetLayout,
-  const vk::ImageView&                  textureImageView,
-  const vk::Sampler&                    textureSampler,
+  GLFWwindow*                     window,
+  vk::DescriptorPool&             descriptorPool,
+  std::vector<vk::CommandBuffer>& commandBuffers,
+  vk::SwapchainKHR&               swapchain,
+  vk::Format&                     swapchainImageFormat,
+  vk::Extent2D                    swapchainExtent,
+  std::vector<vk::Image>&         swapchainImages,
+  std::vector<vk::ImageView>&     swapchainImageViews,
+  std::vector<VkFramebuffer>&     swapchainFramebuffers,
+  Excal::Image::ImageResources&   colorResources,
+  Excal::Image::ImageResources&   depthResources,
+  std::vector<vk::Buffer>&        uniformBuffers,
+  vk::RenderPass&                 renderPass,
+  vk::Pipeline&                   graphicsPipeline,
+  vk::PipelineLayout&             pipelineLayout,
+  vk::PipelineCache&              pipelineCache,
+  std::vector<vk::DescriptorSet>& descriptorSets,
+  const vk::PhysicalDevice&       physicalDevice,
+  const vk::SurfaceKHR&           surface,
+  const vk::SampleCountFlagBits&  msaaSamples,
+  const vk::Format&               depthFormat,
+  const vk::CommandPool&          commandPool,
+  const std::vector<uint32_t>&    indexCounts,
+  const vk::Buffer&               indexBuffer,
+  const vk::Buffer&               vertexBuffer,
+  const vk::DescriptorSetLayout&  descriptorSetLayout,
+  const vk::Sampler&              textureSampler,
+  const vk::ImageView&            textureImageView,
 
   // Required for regular drawFrame() functionality
   size_t&                           currentFrame,
   bool&                             framebufferResized,
-  std::vector<vk::DeviceMemory>&    uniformBuffersMemory,
+  VmaAllocator&                     allocator,
+  std::vector<VmaAllocation>&       uniformBufferAllocations,
   std::vector<vk::Fence>&           imagesInFlight,
   const vk::Device&                 device,
   const vk::Queue&                  graphicsQueue,
@@ -69,24 +71,24 @@ void drawFrame(
       || result == vk::Result::eSuboptimalKHR
   ) {
     Excal::Swapchain::recreateSwapchain(
-      window,               descriptorPool,       commandBuffers,
-      swapchain,            swapchainImageFormat, swapchainExtent,
-      swapchainImages,      swapchainImageViews,  swapchainFramebuffers,
-      colorResources,       depthResources,       uniformBuffers,
-      uniformBuffersMemory, renderPass,           graphicsPipeline,
-      pipelineLayout,       pipelineCache,        descriptorSets,
-      device,               physicalDevice,       surface,
-      msaaSamples,          depthFormat,          nIndices,
-      commandPool,          vertexBuffer,         indexBuffer,
-      descriptorSetLayout,  textureImageView,     textureSampler
+      window,                   descriptorPool,       commandBuffers,
+      swapchain,                swapchainImageFormat, swapchainExtent,
+      swapchainImages,          swapchainImageViews,  swapchainFramebuffers,
+      colorResources,           depthResources,       uniformBuffers,
+      uniformBufferAllocations, renderPass,           graphicsPipeline,
+      pipelineLayout,           pipelineCache,        descriptorSets,
+      device,                   physicalDevice,       allocator,
+      surface,                  msaaSamples,          depthFormat,
+      commandPool,              indexCounts,          indexBuffer,
+      vertexBuffer,             descriptorSetLayout,  textureSampler,
+      textureImageView
     );
     return;
   }
 
   Excal::Buffer::updateUniformBuffer(
-    uniformBuffersMemory,
-    device,
-    swapchainExtent,
+    allocator, uniformBufferAllocations,
+    device,    swapchainExtent,
     imageIndex
   );
 
@@ -124,16 +126,17 @@ void drawFrame(
   ) {
     framebufferResized = false;
     Excal::Swapchain::recreateSwapchain(
-      window,               descriptorPool,       commandBuffers,
-      swapchain,            swapchainImageFormat, swapchainExtent,
-      swapchainImages,      swapchainImageViews,  swapchainFramebuffers,
-      colorResources,       depthResources,       uniformBuffers,
-      uniformBuffersMemory, renderPass,           graphicsPipeline,
-      pipelineLayout,       pipelineCache,        descriptorSets,
-      device,               physicalDevice,       surface,
-      msaaSamples,          depthFormat,          nIndices,
-      commandPool,          vertexBuffer,         indexBuffer,
-      descriptorSetLayout,  textureImageView,     textureSampler
+      window,                   descriptorPool,       commandBuffers,
+      swapchain,                swapchainImageFormat, swapchainExtent,
+      swapchainImages,          swapchainImageViews,  swapchainFramebuffers,
+      colorResources,           depthResources,       uniformBuffers,
+      uniformBufferAllocations, renderPass,           graphicsPipeline,
+      pipelineLayout,           pipelineCache,        descriptorSets,
+      device,                   physicalDevice,       allocator,
+      surface,                  msaaSamples,          depthFormat,
+      commandPool,              indexCounts,          indexBuffer,
+      vertexBuffer,             descriptorSetLayout,  textureSampler,
+      textureImageView
     );
     return;
   }
