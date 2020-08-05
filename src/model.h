@@ -22,7 +22,8 @@ ModelData loadModel(const std::string& modelPath);
 Model createModel(
   const std::string& modelPath,
   const std::string& texturePath,
-  const float        vertexOffset,  // TODO temp
+  const float        vertexOffset, // TODO temp
+  const float        scale,        // TODO temp
   const MvpMatrix&   mvpMatrix
 );
 }

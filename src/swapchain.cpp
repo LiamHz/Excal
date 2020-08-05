@@ -134,7 +134,7 @@ void cleanupSwapchain(
   vk::SwapchainKHR&               swapchain,
   std::vector<vk::ImageView>&     swapchainImageViews,
   std::vector<VkFramebuffer>&     swapchainFramebuffers,
-  Excal::Image::ImageResources&  colorResources,
+  Excal::Image::ImageResources&   colorResources,
   Excal::Image::ImageResources&   depthResources,
   std::vector<vk::Buffer>&        uniformBuffers,
   std::vector<VmaAllocation>&     uniformBufferAllocations,
@@ -171,37 +171,37 @@ void cleanupSwapchain(
 }
 
 void recreateSwapchain(
-  GLFWwindow*                     window,
-  vk::DescriptorPool&             descriptorPool,
-  std::vector<vk::CommandBuffer>& commandBuffers,
-  vk::SwapchainKHR&               swapchain,
-  vk::Format&                     swapchainImageFormat,
-  vk::Extent2D                    swapchainExtent,
-  std::vector<vk::Image>&         swapchainImages,
-  std::vector<vk::ImageView>&     swapchainImageViews,
-  std::vector<VkFramebuffer>&     swapchainFramebuffers,
-  Excal::Image::ImageResources&  colorResources,
-  Excal::Image::ImageResources&   depthResources,
-  std::vector<vk::Buffer>&        uniformBuffers,
-  std::vector<VmaAllocation>&     uniformBufferAllocations,
-  vk::RenderPass&                 renderPass,
-  vk::Pipeline&                   graphicsPipeline,
-  vk::PipelineLayout&             pipelineLayout,
-  vk::PipelineCache&              pipelineCache,
-  std::vector<vk::DescriptorSet>& descriptorSets,
-  const vk::Device&               device,
-  const vk::PhysicalDevice&       physicalDevice,
-  VmaAllocator&                   allocator,
-  const vk::SurfaceKHR&           surface,
-  const vk::SampleCountFlagBits&  msaaSamples,
-  const vk::Format&               depthFormat,
-  const vk::CommandPool&          commandPool,
-  const std::vector<uint32_t>&    indexCounts,
-  const vk::Buffer&               indexBuffer,
-  const vk::Buffer&               vertexBuffer,
-  const vk::DescriptorSetLayout&  descriptorSetLayout,
-  const vk::Sampler&              textureSampler,
-  const vk::ImageView&            textureImageView
+  GLFWwindow*                       window,
+  vk::DescriptorPool&               descriptorPool,
+  std::vector<vk::CommandBuffer>&   commandBuffers,
+  vk::SwapchainKHR&                 swapchain,
+  vk::Format&                       swapchainImageFormat,
+  vk::Extent2D                      swapchainExtent,
+  std::vector<vk::Image>&           swapchainImages,
+  std::vector<vk::ImageView>&       swapchainImageViews,
+  std::vector<VkFramebuffer>&       swapchainFramebuffers,
+  Excal::Image::ImageResources&     colorResources,
+  Excal::Image::ImageResources&     depthResources,
+  std::vector<vk::Buffer>&          uniformBuffers,
+  std::vector<VmaAllocation>&       uniformBufferAllocations,
+  vk::RenderPass&                   renderPass,
+  vk::Pipeline&                     graphicsPipeline,
+  vk::PipelineLayout&               pipelineLayout,
+  vk::PipelineCache&                pipelineCache,
+  std::vector<vk::DescriptorSet>&   descriptorSets,
+  const vk::Device&                 device,
+  const vk::PhysicalDevice&         physicalDevice,
+  VmaAllocator&                     allocator,
+  const vk::SurfaceKHR&             surface,
+  const vk::SampleCountFlagBits&    msaaSamples,
+  const vk::Format&                 depthFormat,
+  const vk::CommandPool&            commandPool,
+  const std::vector<uint32_t>&      indexCounts,
+  const vk::Buffer&                 indexBuffer,
+  const vk::Buffer&                 vertexBuffer,
+  const vk::DescriptorSetLayout&    descriptorSetLayout,
+  const std::vector<vk::ImageView>& textureImageViews,
+  const vk::Sampler&                textureSampler
 ) {
   // Handle widow minimization
   int width = 0, height = 0;
@@ -293,7 +293,9 @@ void recreateSwapchain(
     allocator,      uniformBufferAllocations
   );
 
-  descriptorPool = Excal::Descriptor::createDescriptorPool(device, swapchainImages.size());
+  descriptorPool = Excal::Descriptor::createDescriptorPool(
+    device, swapchainImages.size(), textureImageViews.size()
+  );
 
   descriptorSets = Excal::Descriptor::createDescriptorSets(
     device,
@@ -301,7 +303,7 @@ void recreateSwapchain(
     descriptorPool,
     descriptorSetLayout,
     uniformBuffers,
-    textureImageView,
+    textureImageViews,
     textureSampler
   );
   

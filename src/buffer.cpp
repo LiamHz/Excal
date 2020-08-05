@@ -102,9 +102,14 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
 
     uint32_t offset = 0;
 
-    for (auto& indexCount : indexCounts) {
-      cmd.drawIndexed(indexCount, 1, offset, 0, 0);
-      offset += indexCount;
+    for (int i=0; i < indexCounts.size(); i++) {
+      // Push constant corresponds to index of texture array for current model
+      cmd.pushConstants(
+        pipelineLayout, vk::ShaderStageFlagBits::eFragment,
+        0, sizeof(int), &i
+      );
+      cmd.drawIndexed(indexCounts[i], 1, offset, 0, 0);
+      offset += indexCounts[i];
     }
 
     cmd.endRenderPass();

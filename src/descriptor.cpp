@@ -84,21 +84,124 @@ vk::DescriptorSetLayout createDescriptorSetLayout(
  );
 }
 
+std::vector<vk::DescriptorSet> createDescriptorSets(
+  const vk::Device&                 device,
+  const int                         nDescriptorSets,
+  const vk::DescriptorPool&         descriptorPool,
+  const vk::DescriptorSetLayout&    descriptorSetLayout,
+  const std::vector<vk::Buffer>&    uniformBuffers,
+  const std::vector<vk::ImageView>& textureImageViews,
+  const vk::Sampler&                textureSampler
+) {
+  std::vector<vk::DescriptorSet>       descriptorSets(nDescriptorSets);
+  std::vector<vk::DescriptorSetLayout> layouts(nDescriptorSets, descriptorSetLayout);
+
+  descriptorSets = device.allocateDescriptorSets(
+    vk::DescriptorSetAllocateInfo(
+      descriptorPool, nDescriptorSets, layouts.data()
+    )
+  );
+
+  for (size_t i=0; i < nDescriptorSets; i++) {
+    vk::DescriptorBufferInfo bufferInfo(
+      uniformBuffers[i], 0, sizeof(UniformBufferObject)
+    );
+
+    vk::DescriptorImageInfo textureImageInfos[textureImageViews.size()];
+
+    for (int i=0; i < textureImageViews.size(); i++) {
+      textureImageInfos[i].sampler     = nullptr;
+      textureImageInfos[i].imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+      textureImageInfos[i].imageView   = textureImageViews[i];
+    }
+
+    vk::DescriptorImageInfo textureSamplerInfo(textureSampler);
+
+    vk::WriteDescriptorSet uniformBufferDescriptorWrite(
+      descriptorSets[i], 0, 0, 1,
+      vk::DescriptorType::eUniformBuffer,
+      nullptr, &bufferInfo, nullptr
+    );
+
+    vk::WriteDescriptorSet textureSamplerDescriptorWrite(
+      descriptorSets[i], 1, 0, 1,
+      vk::DescriptorType::eSampler,
+      &textureSamplerInfo, nullptr, nullptr
+    );
+
+    vk::WriteDescriptorSet textureImageDescriptorWrite(
+      descriptorSets[i], 2, 0, textureImageViews.size(),
+      vk::DescriptorType::eSampledImage,
+      textureImageInfos, nullptr, nullptr
+    );
+
+    std::array<vk::WriteDescriptorSet, 3> descriptorWrites = {
+      uniformBufferDescriptorWrite,
+      textureSamplerDescriptorWrite,
+      textureImageDescriptorWrite
+    };
+
+    device.updateDescriptorSets(
+      descriptorWrites.size(),
+      descriptorWrites.data(),
+      0, nullptr
+    );
+  }
+
+  return descriptorSets;
+}
+
+vk::DescriptorSetLayout createDescriptorSetLayout(
+  const vk::Device& device,
+  const int nTextures
+) {
+  vk::DescriptorSetLayoutBinding uboLayoutBinding(
+    0, vk::DescriptorType::eUniformBuffer,
+    1, vk::ShaderStageFlagBits::eVertex, nullptr
+  );
+
+  vk::DescriptorSetLayoutBinding textureSamplerLayoutBinding(
+    1, vk::DescriptorType::eSampler,
+    1, vk::ShaderStageFlagBits::eFragment, nullptr
+  );
+
+  vk::DescriptorSetLayoutBinding textureImageLayoutBinding(
+    2,         vk::DescriptorType::eSampledImage,
+    nTextures, vk::ShaderStageFlagBits::eFragment, nullptr
+  );
+
+  std::array<vk::DescriptorSetLayoutBinding, 3> bindings = {
+    uboLayoutBinding,
+    textureSamplerLayoutBinding,
+    textureImageLayoutBinding
+  };
+
+ return device.createDescriptorSetLayout(
+   vk::DescriptorSetLayoutCreateInfo({}, bindings.size(), bindings.data())
+ );
+}
+
 vk::DescriptorPool createDescriptorPool(
   const vk::Device& device,
-  const int         nDescriptorSets
+  const int         nDescriptorSets,
+  const int         nTextures
 ) {
   vk::DescriptorPoolSize uniformBufferPoolSize(
     vk::DescriptorType::eUniformBuffer, nDescriptorSets
   );
 
-  vk::DescriptorPoolSize samplerPoolSize(
-    vk::DescriptorType::eCombinedImageSampler, nDescriptorSets
+  vk::DescriptorPoolSize textureSamplerPoolSize(
+    vk::DescriptorType::eSampler, nDescriptorSets
   );
 
-  std::array<vk::DescriptorPoolSize, 2> poolSizes = {
+  vk::DescriptorPoolSize textureImagePoolSize(
+    vk::DescriptorType::eSampledImage, nDescriptorSets * nTextures
+  );
+
+  std::array<vk::DescriptorPoolSize, 3> poolSizes = {
     uniformBufferPoolSize,
-    samplerPoolSize
+    textureSamplerPoolSize,
+    textureImagePoolSize
   };
 
   return device.createDescriptorPool(

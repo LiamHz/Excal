@@ -64,12 +64,14 @@ Model createModel(
   const std::string& modelPath,
   const std::string& texturePath,
   const float        vertexOffset,  // TODO temp
+  const float        scale,        // TODO temp
   const MvpMatrix&   mvpMatrix
 ) {
   auto modelData = loadModel(modelPath);
 
   for (auto& vertex : modelData.vertices) {
     vertex.pos.x += vertexOffset;
+    vertex.pos   *= scale;
   }
 
   return Model {

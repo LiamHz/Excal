@@ -55,9 +55,11 @@ private:
   // Set by Excal::Image
   vk::Sampler                  textureSampler;
   vk::Format                   depthFormat;
-  Excal::Image::ImageResources textureResources;
   Excal::Image::ImageResources colorResources;
   Excal::Image::ImageResources depthResources;
+
+  std::vector<Excal::Image::ImageResources> textures;
+  std::vector<vk::ImageView>                textureImageViews;
 
   // Set by Excal::Pipeline
   vk::PipelineLayout pipelineLayout;
@@ -94,7 +96,6 @@ private:
 
   struct EngineConfig {
     std::vector<Excal::Model::Model> models;
-    std::string             modelDiffuseTexturePath;
     std::string appName   = "Excal Test App";
     int appVersion        = 1.0;
     uint32_t windowWidth  = 1440;
@@ -121,11 +122,12 @@ public:
   Excal::Model::Model createModel(
     const std::string& modelPath,
     const std::string& texturePath,
-    const float        vertexOffset
+    const float        vertexOffset,
+    const float        scale
     //const MvpMatrix&   mvpMatrix
   ) {
     return Excal::Model::createModel(
-      modelPath, texturePath, vertexOffset,
+      modelPath, texturePath, vertexOffset, scale,
       MvpMatrix { glm::mat4(1.0), glm::mat4(1.0), glm::mat4(1.0) }
     );
   }

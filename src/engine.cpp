@@ -132,13 +132,19 @@ void Engine::initVulkan()
     msaaSamples
   );
 
-  descriptorSetLayout = Excal::Descriptor::createDescriptorSetLayout(device);
+  descriptorSetLayout = Excal::Descriptor::createDescriptorSetLayout(
+    device, config.models.size()
+  );
 
   // TODO Fill in the create info
   pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
 
+  vk::PushConstantRange pushConstantRange(
+    vk::ShaderStageFlagBits::eFragment, 0, sizeof(int)
+  );
+
   pipelineLayout = device.createPipelineLayout(
-    vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 0, nullptr)
+    vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 1, &pushConstantRange)
   );
 
   graphicsPipeline = Excal::Pipeline::createGraphicsPipeline(
@@ -169,15 +175,18 @@ void Engine::initVulkan()
     renderPass,               swapchainExtent
   );
 
-  textureResources = Excal::Image::createTextureResources(
-    physicalDevice, device,
-    allocator,      commandPool,
-    graphicsQueue,  config.modelDiffuseTexturePath
-  );
+  // Create texture resources for each model
+  for (auto& model : config.models) {
+    textures.push_back(
+      Excal::Image::createTextureResources(
+        physicalDevice, device,
+        allocator,      commandPool,
+        graphicsQueue,  model.texturePath
+      )
+    );
+  }
 
-  textureSampler = Excal::Image::createTextureImageSampler(
-    device, textureResources.image
-  );
+  textureSampler = Excal::Image::createTextureImageSampler(device);
 
   // Create vectors containing all model indices and vertices
   std::vector<uint32_t> indices;
@@ -220,13 +229,17 @@ void Engine::initVulkan()
   );
 
   descriptorPool = Excal::Descriptor::createDescriptorPool(
-    device, swapchainImages.size()
+    device, swapchainImages.size(), textures.size()
   );
+
+  for (auto& texture : textures) {
+    textureImageViews.push_back(texture.imageView);
+  }
 
   descriptorSets = Excal::Descriptor::createDescriptorSets(
     device,         swapchainImages.size(),
     descriptorPool, descriptorSetLayout,
-    uniformBuffers, textureResources.imageView,
+    uniformBuffers, textureImageViews,
     textureSampler
   );
 
@@ -256,8 +269,8 @@ void Engine::mainLoop()
       pipelineCache,   descriptorSets,       physicalDevice,
       surface,         msaaSamples,          depthFormat,
       commandPool,     indexCounts,          indexBuffer,
-      vertexBuffer,    descriptorSetLayout,  textureSampler,
-      textureResources.imageView, 
+      vertexBuffer,    descriptorSetLayout,  textureImageViews,
+      textureSampler,
 
       // Required for regular drawFrame() functionality
       currentFrame,             framebufferResized,       allocator,
@@ -281,7 +294,7 @@ void Engine::cleanup()
     pipelineLayout
   );
 
-  for (size_t i=0; i < config.maxFramesInFlight; i++) {
+  for (int i=0; i < config.maxFramesInFlight; i++) {
     device.destroySemaphore(imageAvailableSemaphores[i]);
     device.destroySemaphore(renderFinishedSemaphores[i]);
     device.destroyFence(inFlightFences[i]);
@@ -290,12 +303,14 @@ void Engine::cleanup()
   device.destroyDescriptorSetLayout(descriptorSetLayout);
 
   device.destroySampler(textureSampler);
-  device.destroyImageView(textureResources.imageView);
+
+  for (int i=0; i < textures.size(); i++) {
+    device.destroyImageView(textures[i].imageView);
+    vmaDestroyImage(allocator, textures[i].image, textures[i].imageAllocation);
+  }
 
   vmaDestroyBuffer(allocator, indexBuffer, indexBufferAllocation);
   vmaDestroyBuffer(allocator, vertexBuffer, vertexBufferAllocation);
-
-  vmaDestroyImage(allocator, textureResources.image, textureResources.imageAllocation);
 
   vmaDestroyAllocator(allocator);
 

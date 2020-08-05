@@ -88,8 +88,7 @@ ImageResources createTextureResources(
 );
 
 vk::Sampler createTextureImageSampler(
-  const vk::Device& device,
-  const vk::Image&  textureImage
+  const vk::Device& device
 );
 
 vk::Format findSupportedFormat(
