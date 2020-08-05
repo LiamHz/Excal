@@ -27,6 +27,7 @@
 #include "pipeline.h"
 #include "descriptor.h"
 #include "frame.h"
+#include "utils.h"
 
 namespace Excal
 {
@@ -228,6 +229,24 @@ void Engine::initVulkan()
     allocator,      uniformBufferAllocations
   );
 
+  auto deviceProps = physicalDevice.getProperties();
+  size_t minUboAlignment = deviceProps.limits.minUniformBufferOffsetAlignment;
+
+  dynamicAlignment = sizeof(DynamicUniformBufferObject);
+  if (minUboAlignment > 0) {
+    dynamicAlignment = (dynamicAlignment + minUboAlignment - 1)
+                       & ~(minUboAlignment - 1);
+  }
+
+  dynamicUniformBufferAllocations.resize(swapchainImageViews.size());
+
+  dynamicUniformBuffers = Excal::Buffer::createDynamicUniformBuffers(
+    uboDynamicData, dynamicAlignment,
+    physicalDevice, device,
+    allocator,      dynamicUniformBufferAllocations,
+    config.models.size()
+  );
+
   descriptorPool = Excal::Descriptor::createDescriptorPool(
     device, swapchainImages.size(), textures.size()
   );
@@ -237,17 +256,17 @@ void Engine::initVulkan()
   }
 
   descriptorSets = Excal::Descriptor::createDescriptorSets(
-    device,         swapchainImages.size(),
-    descriptorPool, descriptorSetLayout,
-    uniformBuffers, textureImageViews,
-    textureSampler
+    device,            swapchainImages.size(),
+    descriptorPool,    descriptorSetLayout,
+    uniformBuffers,    dynamicUniformBuffers,
+    textureImageViews, textureSampler
   );
 
   commandBuffers = Excal::Buffer::createCommandBuffers(
     device,          commandPool,      swapchainFramebuffers,
     swapchainExtent, graphicsPipeline, pipelineLayout,
     indexCounts,     indexBuffer,      vertexBuffer,
-    renderPass,      descriptorSets
+    renderPass,      descriptorSets,   dynamicAlignment
   );
 }
 
@@ -261,22 +280,24 @@ void Engine::mainLoop()
     Excal::Frame::drawFrame(
       // Required for call to Excal::Swapchain::recreateSwpachain
       // but otherwise not for drawFrame()
-      window,          descriptorPool,       commandBuffers,
-      swapchain,       swapchainImageFormat, swapchainExtent,
-      swapchainImages, swapchainImageViews,  swapchainFramebuffers,
-      colorResources,  depthResources,       uniformBuffers,
-      renderPass,      graphicsPipeline,     pipelineLayout,
-      pipelineCache,   descriptorSets,       physicalDevice,
-      surface,         msaaSamples,          depthFormat,
-      commandPool,     indexCounts,          indexBuffer,
-      vertexBuffer,    descriptorSetLayout,  textureImageViews,
-      textureSampler,
+      window,          descriptorPool,        commandBuffers,
+      swapchain,       swapchainImageFormat,  swapchainExtent,
+      swapchainImages, swapchainImageViews,   swapchainFramebuffers,
+      colorResources,  depthResources,        uniformBuffers,
+      renderPass,      graphicsPipeline,      pipelineLayout,
+      pipelineCache,   descriptorSets,        physicalDevice,
+      surface,         msaaSamples,           depthFormat,
+      commandPool,     indexCounts,           indexBuffer,
+      vertexBuffer,    descriptorSetLayout,   textureImageViews,
+      textureSampler,  dynamicUniformBuffers,
 
       // Required for regular drawFrame() functionality
-      currentFrame,             framebufferResized,       allocator,
-      uniformBufferAllocations, imagesInFlight,           device,
-      graphicsQueue,            presentQueue,             inFlightFences,
-      imageAvailableSemaphores, renderFinishedSemaphores, config.maxFramesInFlight
+      currentFrame,             framebufferResized,              allocator,
+      uniformBufferAllocations, dynamicUniformBufferAllocations, dynamicAlignment,
+      uboDynamicData,           imagesInFlight,                  device,
+      graphicsQueue,            presentQueue,                    inFlightFences,
+      imageAvailableSemaphores, renderFinishedSemaphores,        config.maxFramesInFlight,
+      config.models
     );
   }
 
@@ -286,12 +307,12 @@ void Engine::mainLoop()
 void Engine::cleanup()
 {
   Excal::Swapchain::cleanupSwapchain(
-    device,              allocator,             commandPool,
-    descriptorPool,      commandBuffers,        swapchain,
-    swapchainImageViews, swapchainFramebuffers, colorResources,
-    depthResources,      uniformBuffers,        uniformBufferAllocations,
-    renderPass,          graphicsPipeline,      pipelineCache,
-    pipelineLayout
+    device,                   allocator,                       commandPool,
+    descriptorPool,           commandBuffers,                  swapchain,
+    swapchainImageViews,      swapchainFramebuffers,           colorResources,
+    depthResources,           uniformBuffers,                  dynamicUniformBuffers,
+    uniformBufferAllocations, dynamicUniformBufferAllocations, renderPass,
+    graphicsPipeline,         pipelineCache,                   pipelineLayout
   );
 
   for (int i=0; i < config.maxFramesInFlight; i++) {
@@ -301,6 +322,8 @@ void Engine::cleanup()
   }
 
   device.destroyDescriptorSetLayout(descriptorSetLayout);
+
+  Excal::Utils::alignedFree(uboDynamicData.model);
 
   device.destroySampler(textureSampler);
 

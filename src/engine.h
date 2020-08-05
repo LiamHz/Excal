@@ -79,6 +79,7 @@ private:
   vk::CommandPool                commandPool;
   std::vector<vk::CommandBuffer> commandBuffers;
   std::vector<vk::Buffer>        uniformBuffers;
+  std::vector<vk::Buffer>        dynamicUniformBuffers;
   std::vector<VkFramebuffer>     swapchainFramebuffers;
 
   // Set by Vulkan Memory Allocator
@@ -86,6 +87,11 @@ private:
   VmaAllocation              indexBufferAllocation;
   VmaAllocation              vertexBufferAllocation;
   std::vector<VmaAllocation> uniformBufferAllocations;
+  std::vector<VmaAllocation> dynamicUniformBufferAllocations;
+
+  // Large uniform buffer that contains all model matrices
+  UboDynamicData uboDynamicData;
+  size_t dynamicAlignment;
 
   //#define NDEBUG
   #ifdef NDEBUG
@@ -122,13 +128,11 @@ public:
   Excal::Model::Model createModel(
     const std::string& modelPath,
     const std::string& texturePath,
-    const float        vertexOffset,
+    const glm::vec3    position,
     const float        scale
-    //const MvpMatrix&   mvpMatrix
   ) {
     return Excal::Model::createModel(
-      modelPath, texturePath, vertexOffset, scale,
-      MvpMatrix { glm::mat4(1.0), glm::mat4(1.0), glm::mat4(1.0) }
+      modelPath, texturePath, position, scale
     );
   }
 

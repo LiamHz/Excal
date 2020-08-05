@@ -7,89 +7,12 @@
 namespace Excal::Descriptor
 {
 std::vector<vk::DescriptorSet> createDescriptorSets(
-  const vk::Device&              device,
-  const int                      nDescriptorSets,
-  const vk::DescriptorPool&      descriptorPool,
-  const vk::DescriptorSetLayout& descriptorSetLayout,
-  const std::vector<vk::Buffer>& uniformBuffers,
-  const vk::ImageView&           textureImageView,
-  const vk::Sampler&             textureSampler
-) {
-  std::vector<vk::DescriptorSet>       descriptorSets(nDescriptorSets);
-  std::vector<vk::DescriptorSetLayout> layouts(nDescriptorSets, descriptorSetLayout);
-
-  descriptorSets = device.allocateDescriptorSets(
-    vk::DescriptorSetAllocateInfo(
-      descriptorPool, nDescriptorSets, layouts.data()
-    )
-  );
-
-  for (size_t i=0; i < nDescriptorSets; i++) {
-    vk::DescriptorBufferInfo bufferInfo(
-      uniformBuffers[i], 0, sizeof(UniformBufferObject)
-    );
-
-    vk::DescriptorImageInfo imageInfo(
-      textureSampler, textureImageView,
-      vk::ImageLayout::eShaderReadOnlyOptimal
-    );
-
-    vk::WriteDescriptorSet uniformBufferDescriptorWrite(
-      descriptorSets[i], 0, 0, 1,
-      vk::DescriptorType::eUniformBuffer,
-      nullptr, &bufferInfo, nullptr
-    );
-
-    vk::WriteDescriptorSet samplerDescriptorWrite(
-      descriptorSets[i], 1, 0, 1,
-      vk::DescriptorType::eCombinedImageSampler,
-      &imageInfo, nullptr, nullptr
-    );
-
-    std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
-      uniformBufferDescriptorWrite,
-      samplerDescriptorWrite
-    };
-
-    device.updateDescriptorSets(
-      descriptorWrites.size(),
-      descriptorWrites.data(),
-      0, nullptr
-    );
-  }
-
-  return descriptorSets;
-}
-
-vk::DescriptorSetLayout createDescriptorSetLayout(
-  const vk::Device& device
-) {
-  vk::DescriptorSetLayoutBinding uboLayoutBinding(
-    0, vk::DescriptorType::eUniformBuffer, 1,
-    vk::ShaderStageFlagBits::eVertex, nullptr
-  );
-
-  vk::DescriptorSetLayoutBinding samplerLayoutBinding(
-    1, vk::DescriptorType::eCombinedImageSampler, 1,
-    vk::ShaderStageFlagBits::eFragment, nullptr
-  );
-
-  std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {
-    uboLayoutBinding,
-    samplerLayoutBinding
-  };
-
- return device.createDescriptorSetLayout(
-   vk::DescriptorSetLayoutCreateInfo({}, bindings.size(), bindings.data())
- );
-}
-
-std::vector<vk::DescriptorSet> createDescriptorSets(
   const vk::Device&                 device,
   const int                         nDescriptorSets,
   const vk::DescriptorPool&         descriptorPool,
   const vk::DescriptorSetLayout&    descriptorSetLayout,
   const std::vector<vk::Buffer>&    uniformBuffers,
+  const std::vector<vk::Buffer>&    dynamicUniformBuffers,
   const std::vector<vk::ImageView>& textureImageViews,
   const vk::Sampler&                textureSampler
 ) {
@@ -103,8 +26,14 @@ std::vector<vk::DescriptorSet> createDescriptorSets(
   );
 
   for (size_t i=0; i < nDescriptorSets; i++) {
-    vk::DescriptorBufferInfo bufferInfo(
-      uniformBuffers[i], 0, sizeof(UniformBufferObject)
+    vk::DescriptorBufferInfo uniformBufferInfo(
+      uniformBuffers[i], 0,
+      sizeof(UniformBufferObject)
+    );
+
+    vk::DescriptorBufferInfo dynamicUniformBufferInfo(
+      dynamicUniformBuffers[i], 0,
+      sizeof(DynamicUniformBufferObject)
     );
 
     vk::DescriptorImageInfo textureImageInfos[textureImageViews.size()];
@@ -120,23 +49,30 @@ std::vector<vk::DescriptorSet> createDescriptorSets(
     vk::WriteDescriptorSet uniformBufferDescriptorWrite(
       descriptorSets[i], 0, 0, 1,
       vk::DescriptorType::eUniformBuffer,
-      nullptr, &bufferInfo, nullptr
+      nullptr, &uniformBufferInfo, nullptr
+    );
+
+    vk::WriteDescriptorSet dynamicUniformBufferDescriptorWrite(
+      descriptorSets[i], 1, 0, 1,
+      vk::DescriptorType::eUniformBufferDynamic,
+      nullptr, &dynamicUniformBufferInfo, nullptr
     );
 
     vk::WriteDescriptorSet textureSamplerDescriptorWrite(
-      descriptorSets[i], 1, 0, 1,
+      descriptorSets[i], 2, 0, 1,
       vk::DescriptorType::eSampler,
       &textureSamplerInfo, nullptr, nullptr
     );
 
     vk::WriteDescriptorSet textureImageDescriptorWrite(
-      descriptorSets[i], 2, 0, textureImageViews.size(),
+      descriptorSets[i], 3, 0, textureImageViews.size(),
       vk::DescriptorType::eSampledImage,
       textureImageInfos, nullptr, nullptr
     );
 
-    std::array<vk::WriteDescriptorSet, 3> descriptorWrites = {
+    std::array<vk::WriteDescriptorSet, 4> descriptorWrites = {
       uniformBufferDescriptorWrite,
+      dynamicUniformBufferDescriptorWrite,
       textureSamplerDescriptorWrite,
       textureImageDescriptorWrite
     };
@@ -160,18 +96,24 @@ vk::DescriptorSetLayout createDescriptorSetLayout(
     1, vk::ShaderStageFlagBits::eVertex, nullptr
   );
 
+  vk::DescriptorSetLayoutBinding dynamicUboLayoutBinding(
+    1, vk::DescriptorType::eUniformBufferDynamic,
+    1, vk::ShaderStageFlagBits::eVertex, nullptr
+  );
+
   vk::DescriptorSetLayoutBinding textureSamplerLayoutBinding(
-    1, vk::DescriptorType::eSampler,
+    2, vk::DescriptorType::eSampler,
     1, vk::ShaderStageFlagBits::eFragment, nullptr
   );
 
   vk::DescriptorSetLayoutBinding textureImageLayoutBinding(
-    2,         vk::DescriptorType::eSampledImage,
+    3,         vk::DescriptorType::eSampledImage,
     nTextures, vk::ShaderStageFlagBits::eFragment, nullptr
   );
 
-  std::array<vk::DescriptorSetLayoutBinding, 3> bindings = {
+  std::array<vk::DescriptorSetLayoutBinding, 4> bindings = {
     uboLayoutBinding,
+    dynamicUboLayoutBinding,
     textureSamplerLayoutBinding,
     textureImageLayoutBinding
   };
@@ -190,6 +132,10 @@ vk::DescriptorPool createDescriptorPool(
     vk::DescriptorType::eUniformBuffer, nDescriptorSets
   );
 
+  vk::DescriptorPoolSize dynamicUniformBufferPoolSize(
+    vk::DescriptorType::eUniformBufferDynamic, nDescriptorSets
+  );
+
   vk::DescriptorPoolSize textureSamplerPoolSize(
     vk::DescriptorType::eSampler, nDescriptorSets
   );
@@ -198,10 +144,11 @@ vk::DescriptorPool createDescriptorPool(
     vk::DescriptorType::eSampledImage, nDescriptorSets * nTextures
   );
 
-  std::array<vk::DescriptorPoolSize, 3> poolSizes = {
+  std::array<vk::DescriptorPoolSize, 4> poolSizes = {
     uniformBufferPoolSize,
     textureSamplerPoolSize,
-    textureImagePoolSize
+    textureImagePoolSize,
+    dynamicUniformBufferPoolSize
   };
 
   return device.createDescriptorPool(

@@ -5,6 +5,9 @@
 
 #include <vector>
 
+#include "structs.h"
+#include "model.h"
+
 namespace Excal::Buffer
 {
 vk::Buffer createBuffer(
@@ -29,7 +32,8 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
   const vk::Buffer&                     indexBuffer,
   const vk::Buffer&                     vertexBuffer,
   const vk::RenderPass&                 renderPass,
-  const std::vector<vk::DescriptorSet>& descriptorSets
+  const std::vector<vk::DescriptorSet>& descriptorSets,
+  const size_t                          dynamicAlignment
 );
 
 std::vector<VkFramebuffer> createFramebuffers(
@@ -48,12 +52,33 @@ std::vector<vk::Buffer> createUniformBuffers(
   std::vector<VmaAllocation>& bufferAllocations
 );
 
+std::vector<vk::Buffer> createDynamicUniformBuffers(
+  UboDynamicData&             uboDynamicData,
+  const size_t                dynamicAlignment,
+  const vk::PhysicalDevice&   physicalDevice,
+  const vk::Device&           device,
+  VmaAllocator&               allocator,
+  std::vector<VmaAllocation>& bufferAllocations,
+  const int                   nObjects
+);
+
 void updateUniformBuffer(
   VmaAllocator&               allocator,
-  std::vector<VmaAllocation>& uniformBufferAllocations,
+  std::vector<VmaAllocation>& bufferAllocations,
   const vk::Device&           device,
   const vk::Extent2D&         swapchainExtent,
   const uint32_t              currentImage
+);
+
+void updateDynamicUniformBuffer(
+  UboDynamicData&              uboDynamicData,
+  const size_t                 dynamicAlignment,
+  VmaAllocator&                allocator,
+  std::vector<VmaAllocation>&  bufferAllocations,
+  const vk::Device&            device,
+  const vk::Extent2D&          swapchainExtent,
+  const uint32_t               currentImage,
+  const std::vector<Excal::Model::Model>& models
 );
 
 vk::CommandBuffer beginSingleTimeCommands(

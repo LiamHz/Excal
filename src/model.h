@@ -13,8 +13,9 @@ struct ModelData {
 struct Model {
   std::vector<uint32_t> indices;
   std::vector<Vertex>   vertices;
-  std::string texturePath;
-  MvpMatrix mvpMatrix;
+  std::string           texturePath;
+  glm::vec3             position;
+  float                 scale;
 };
 
 ModelData loadModel(const std::string& modelPath);
@@ -22,8 +23,7 @@ ModelData loadModel(const std::string& modelPath);
 Model createModel(
   const std::string& modelPath,
   const std::string& texturePath,
-  const float        vertexOffset, // TODO temp
-  const float        scale,        // TODO temp
-  const MvpMatrix&   mvpMatrix
+  const glm::vec3    position,
+  const float        scale
 );
 }

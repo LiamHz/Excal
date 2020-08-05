@@ -16,6 +16,7 @@
 #include "device.h"
 #include "structs.h"
 #include "model.h"
+#include "utils.h"
 
 namespace Excal::Buffer
 {
@@ -55,7 +56,8 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
   const vk::Buffer&                     indexBuffer,
   const vk::Buffer&                     vertexBuffer,
   const vk::RenderPass&                 renderPass,
-  const std::vector<vk::DescriptorSet>& descriptorSets
+  const std::vector<vk::DescriptorSet>& descriptorSets,
+  const size_t                          dynamicAlignment
 ) {
   std::vector<vk::CommandBuffer> commandBuffers(swapchainFramebuffers.size());
 
@@ -87,6 +89,17 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
       vk::SubpassContents::eInline
     );
 
+    vk::Viewport viewport(
+      0.0f, 0.0f,
+      (float) swapchainExtent.width,
+      (float) swapchainExtent.height,
+      0.0f, 1.0f
+    );
+    vk::Rect2D scissor({0, 0}, swapchainExtent);
+
+    cmd.setViewport(0, 1, &viewport);
+    cmd.setScissor(0, 1, &scissor);
+
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
     vk::DeviceSize offsets[] = {0};
@@ -94,20 +107,25 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
     cmd.bindVertexBuffers(0, 1, &vertexBuffer, offsets);
     cmd.bindIndexBuffer(indexBuffer, 0, vk::IndexType::eUint32);
 
-    cmd.bindDescriptorSets(
-      vk::PipelineBindPoint::eGraphics,
-      pipelineLayout, 0, 1,
-      &descriptorSets[i], 0, nullptr
-    );
-
     uint32_t offset = 0;
 
     for (int i=0; i < indexCounts.size(); i++) {
+      // Dynamic descriptor
+      uint32_t dynamicOffset = i * static_cast<uint32_t>(dynamicAlignment);
+
+      cmd.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics,
+        pipelineLayout, 0, 1,
+        &descriptorSets[i],
+        1, &dynamicOffset
+      );
+
       // Push constant corresponds to index of texture array for current model
       cmd.pushConstants(
         pipelineLayout, vk::ShaderStageFlagBits::eFragment,
         0, sizeof(int), &i
       );
+
       cmd.drawIndexed(indexCounts[i], 1, offset, 0, 0);
       offset += indexCounts[i];
     }
@@ -175,38 +193,60 @@ std::vector<vk::Buffer> createUniformBuffers(
   return uniformBuffers;
 }
 
+std::vector<vk::Buffer> createDynamicUniformBuffers(
+  UboDynamicData&             uboDynamicData,
+  const size_t                dynamicAlignment,
+  const vk::PhysicalDevice&   physicalDevice,
+  const vk::Device&           device,
+  VmaAllocator&               allocator,
+  std::vector<VmaAllocation>& bufferAllocations,
+  const int                   nObjects
+) {
+  size_t bufferSize = nObjects * dynamicAlignment;
+
+  uboDynamicData.model
+    = (glm::mat4*)Excal::Utils::alignedAlloc(bufferSize, dynamicAlignment);
+
+  std::vector<vk::Buffer> dynamicUniformBuffers(bufferAllocations.size());
+
+  VmaAllocationCreateInfo allocInfo = {};
+  allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+  /*
+  allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+  allocInfo.requiredFlags  = static_cast<VkMemoryPropertyFlags>(
+    vk::MemoryPropertyFlagBits::eHostVisible
+  );
+  allocInfo.preferredFlags = static_cast<VkMemoryPropertyFlags> (
+      vk::MemoryPropertyFlagBits::eHostCoherent
+    | vk::MemoryPropertyFlagBits::eHostCached
+  );
+  */
+
+  for (size_t i=0; i < bufferAllocations.size(); i++) {
+    dynamicUniformBuffers[i] = Excal::Buffer::createBuffer(
+      allocator,      bufferAllocations[i], allocInfo,
+      physicalDevice, device,               bufferSize,
+      vk::BufferUsageFlagBits::eUniformBuffer,
+        vk::MemoryPropertyFlagBits::eHostVisible
+      | vk::MemoryPropertyFlagBits::eHostCoherent
+    );
+  }
+
+  return dynamicUniformBuffers;
+}
+
 void updateUniformBuffer(
   VmaAllocator&               allocator,
-  std::vector<VmaAllocation>& uniformBufferAllocations,
+  std::vector<VmaAllocation>& bufferAllocations,
   const vk::Device&           device,
   const vk::Extent2D&         swapchainExtent,
   const uint32_t              currentImage
 ) {
-  static auto startTime = std::chrono::high_resolution_clock::now();
-  auto currentTime      = std::chrono::high_resolution_clock::now();
-
-  float time = std::chrono::duration<float, std::chrono::seconds::period>(
-    currentTime - startTime
-  ).count();
-
   UniformBufferObject ubo{};
 
-  glm::mat4 uboRotation = glm::rotate(
-    glm::mat4(1.0f),
-    (1.0f + time / 2.0f) * glm::radians(90.0f),
-    glm::vec3(0.0f, 1.0f, 0.0f) // Rotation axis
-  );
-
-  glm::mat4 uboTranslation = glm::translate(
-    glm::mat4(1.0f),
-    glm::vec3(0.0f, -0.67f, 0.0f)
-  );
-
-  ubo.model = uboRotation * uboTranslation;
-
   ubo.view = glm::lookAt(
-    glm::vec3(0.0f, 1.0f, 5.0f), // Eye position
-    glm::vec3(0.0f),             // Center position
+    glm::vec3(0.0f, 2.0f, 5.0f), // Eye position
+    glm::vec3(0.0f, 0.7f, 0.0f), // Center position
     glm::vec3(0.0f, 1.0f, 0.0f)  // Up Axis
   );
 
@@ -219,10 +259,55 @@ void updateUniformBuffer(
   // Invert Y axis to acccount for difference between OpenGL and Vulkan
   ubo.proj[1][1] *= -1;
 
+  // TODO Don't map and unmap data every frame. Refer to other TODO in this file
   void* mappedData;
-  vmaMapMemory(allocator, uniformBufferAllocations[currentImage], &mappedData);
+  vmaMapMemory(allocator, bufferAllocations[currentImage], &mappedData);
   memcpy(mappedData, &ubo, sizeof(ubo));
-  vmaUnmapMemory(allocator, uniformBufferAllocations[currentImage]);
+  vmaUnmapMemory(allocator, bufferAllocations[currentImage]);
+}
+
+void updateDynamicUniformBuffer(
+  UboDynamicData&                    uboDynamicData,
+  const size_t                       dynamicAlignment,
+  VmaAllocator&                      allocator,
+  std::vector<VmaAllocation>&        bufferAllocations,
+  const vk::Device&                  device,
+  const vk::Extent2D&                swapchainExtent,
+  const uint32_t                     currentImage,
+  const std::vector<Excal::Model::Model>& models
+) {
+  static auto startTime = std::chrono::high_resolution_clock::now();
+  auto currentTime      = std::chrono::high_resolution_clock::now();
+
+  float time = std::chrono::duration<float, std::chrono::seconds::period>(
+    currentTime - startTime
+  ).count();
+
+  for (uint32_t i=0; i < models.size(); i++) {
+    glm::mat4* modelMat = (glm::mat4*)(
+      ((uint64_t) uboDynamicData.model + (i * dynamicAlignment))
+    );
+
+    auto pos = models[i].position;
+
+    *modelMat = glm::translate(glm::mat4(1.0f), pos);
+    *modelMat = glm::scale(*modelMat, glm::vec3(models[i].scale));
+
+    *modelMat = glm::rotate(
+      *modelMat,
+      (i * time / 2.0f) * glm::radians(90.0f),
+      glm::vec3(0.0f, 1.0f, 0.0f) // Rotation axis
+    );
+  }
+
+  // TODO Mapping and unmapping data every frame just to change a matrix is inefficient
+  //      Figure out how to map this data once, possibly with vkFlushMappedMemoryRanges
+  //      or the VMA equivalent. Refer to bottom of Sascha Willem's guide
+  //      https://github.com/SaschaWillems/Vulkan/tree/master/examples/dynamicuniformbuffer
+  void* mappedData;
+  vmaMapMemory(allocator, bufferAllocations[currentImage], &mappedData);
+  memcpy(mappedData, uboDynamicData.model, dynamicAlignment * models.size());
+  vmaUnmapMemory(allocator, bufferAllocations[currentImage]);
 }
 
 vk::CommandBuffer beginSingleTimeCommands(

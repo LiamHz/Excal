@@ -137,7 +137,9 @@ void cleanupSwapchain(
   Excal::Image::ImageResources&   colorResources,
   Excal::Image::ImageResources&   depthResources,
   std::vector<vk::Buffer>&        uniformBuffers,
+  std::vector<vk::Buffer>&        dynamicUniformBuffers,
   std::vector<VmaAllocation>&     uniformBufferAllocations,
+  std::vector<VmaAllocation>&     dynamicUniformBufferAllocations,
   vk::RenderPass&                 renderPass,
   vk::Pipeline&                   graphicsPipeline,
   vk::PipelineCache&              pipelineCache,
@@ -165,6 +167,9 @@ void cleanupSwapchain(
   for (size_t i=0; i < swapchainImageViews.size(); i++) {
     device.destroyImageView(swapchainImageViews[i]);
     vmaDestroyBuffer(allocator, uniformBuffers[i], uniformBufferAllocations[i]);
+    vmaDestroyBuffer(
+      allocator, dynamicUniformBuffers[i], dynamicUniformBufferAllocations[i]
+    );
   }
 
   device.destroySwapchainKHR(swapchain);
@@ -183,6 +188,9 @@ void recreateSwapchain(
   Excal::Image::ImageResources&     colorResources,
   Excal::Image::ImageResources&     depthResources,
   std::vector<vk::Buffer>&          uniformBuffers,
+  std::vector<vk::Buffer>&          dynamicUniformBuffers,
+  const size_t                      dynamicAlignment,
+  std::vector<VmaAllocation>&       dynamicUniformBufferAllocations,
   std::vector<VmaAllocation>&       uniformBufferAllocations,
   vk::RenderPass&                   renderPass,
   vk::Pipeline&                     graphicsPipeline,
@@ -215,12 +223,12 @@ void recreateSwapchain(
   device.waitIdle();
 
   cleanupSwapchain(
-    device,              allocator,             commandPool,
-    descriptorPool,      commandBuffers,        swapchain,
-    swapchainImageViews, swapchainFramebuffers, colorResources,
-    depthResources,      uniformBuffers,        uniformBufferAllocations,
-    renderPass,          graphicsPipeline,      pipelineCache,
-    pipelineLayout
+    device,                   allocator,                       commandPool,
+    descriptorPool,           commandBuffers,                  swapchain,
+    swapchainImageViews,      swapchainFramebuffers,           colorResources,
+    depthResources,           uniformBuffers,                  dynamicUniformBuffers,
+    uniformBufferAllocations, dynamicUniformBufferAllocations, renderPass,
+    graphicsPipeline,         pipelineCache,                   pipelineLayout
   );
 
   auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
@@ -298,20 +306,17 @@ void recreateSwapchain(
   );
 
   descriptorSets = Excal::Descriptor::createDescriptorSets(
-    device,
-    swapchainImages.size(),
-    descriptorPool,
-    descriptorSetLayout,
-    uniformBuffers,
-    textureImageViews,
-    textureSampler
+    device,            swapchainImages.size(),
+    descriptorPool,    descriptorSetLayout,
+    uniformBuffers,    dynamicUniformBuffers,
+    textureImageViews, textureSampler
   );
   
   commandBuffers = Excal::Buffer::createCommandBuffers(
     device,          commandPool,      swapchainFramebuffers,
     swapchainExtent, graphicsPipeline, pipelineLayout,
     indexCounts,     indexBuffer,      vertexBuffer,
-    renderPass,      descriptorSets
+    renderPass,      descriptorSets,   dynamicAlignment
   );
 }
 }

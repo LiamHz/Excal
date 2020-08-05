@@ -10,6 +10,7 @@ std::vector<vk::DescriptorSet> createDescriptorSets(
   const vk::DescriptorPool&         descriptorPool,
   const vk::DescriptorSetLayout&    descriptorSetLayout,
   const std::vector<vk::Buffer>&    uniformBuffers,
+  const std::vector<vk::Buffer>&    dynamicUniformBuffers,
   const std::vector<vk::ImageView>& textureImageViews,
   const vk::Sampler&                textureSampler
 );

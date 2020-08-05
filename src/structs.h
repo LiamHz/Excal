@@ -15,10 +15,8 @@
 #include <vector>
 
 // TODO Move structs inside of Excal::Structs namespace
-struct MvpMatrix {
-  glm::mat4 model;
-  glm::mat4 view;
-  glm::mat4 projection;
+struct UboDynamicData {
+  glm::mat4 *model = nullptr;
 };
 
 struct QueueFamilyIndices {
@@ -85,10 +83,12 @@ namespace std {
   };
 }
 
+// Account for Vulkan aligment requirements
 struct UniformBufferObject {
-  // Account for Vulkan aligment requirements
-  alignas(16) glm::mat4 model;
-  alignas(16) glm::mat4 view;
-  alignas(16) glm::mat4 proj;
+  glm::mat4 view;
+  glm::mat4 proj;
 };
 
+struct DynamicUniformBufferObject {
+  glm::mat4 model;
+};

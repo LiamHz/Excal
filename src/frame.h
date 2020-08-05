@@ -6,6 +6,8 @@
 #include <vulkan/vulkan.hpp>
 
 #include "image.h"
+#include "structs.h"
+#include "model.h"
 
 namespace Excal::Frame
 {
@@ -40,12 +42,16 @@ void drawFrame(
   const vk::DescriptorSetLayout&    descriptorSetLayout,
   const std::vector<vk::ImageView>& textureImageViews,
   const vk::Sampler&                textureSampler,
+  std::vector<vk::Buffer>&          dynamicUniformBuffers,
 
   // Required for regular drawFrame() functionality
   size_t&                           currentFrame,
   bool&                             framebufferResized,
   VmaAllocator&                     allocator,
   std::vector<VmaAllocation>&       uniformBufferAllocations,
+  std::vector<VmaAllocation>&       dynamicUniformBufferAllocations,
+  const size_t                      dynamicAlignment,
+  UboDynamicData&                   uboDynamicData,
   std::vector<vk::Fence>&           imagesInFlight,
   const vk::Device&                 device,
   const vk::Queue&                  graphicsQueue,
@@ -53,6 +59,7 @@ void drawFrame(
   const std::vector<vk::Fence>&     inFlightFences,
   const std::vector<vk::Semaphore>& imageAvailableSemaphores,
   const std::vector<vk::Semaphore>& renderFinishedSemaphores,
-  const int                         maxFramesInFlight
+  const int                         maxFramesInFlight,
+  const std::vector<Excal::Model::Model>& models
 );
 }

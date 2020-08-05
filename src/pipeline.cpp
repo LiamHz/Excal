@@ -169,6 +169,16 @@ vk::Pipeline createGraphicsPipeline(
     {}, VK_FALSE, vk::LogicOp::eClear, 1, &colorBlendAttachment
   );
 
+  std::vector<vk::DynamicState> dynamicStateEnables = {
+    vk::DynamicState::eViewport,
+    vk::DynamicState::eScissor
+  };
+
+  vk::PipelineDynamicStateCreateInfo dynamicState(
+    {}, dynamicStateEnables.size(),
+    dynamicStateEnables.data()
+  );
+
   // Combine above structs to create graphics pipeline
   auto graphicsPipeline = device.createGraphicsPipeline(
     pipelineCache,
@@ -176,7 +186,7 @@ vk::Pipeline createGraphicsPipeline(
       {},               shaderStages.size(), shaderStages.data(),
       &vertexInputInfo, &inputAssembly,      nullptr,
       &viewportState,   &rasterizer,         &multisampling,
-      &depthStencil,    &colorBlending,      nullptr,
+      &depthStencil,    &colorBlending,      &dynamicState,
       pipelineLayout,   renderPass,          0
     )
   ).value;

@@ -14,8 +14,6 @@ struct SwapchainState {
   vk::SwapchainKHR           swapchain;
   vk::Format                 swapchainImageFormat;
   vk::Extent2D               swapchainExtent;
-  //std::vector<vk::Image>     swapchainImages;
-  //std::vector<vk::ImageView> swapchainImageViews;
 };
 
 SwapchainState createSwapchain(
@@ -44,7 +42,9 @@ void cleanupSwapchain(
   Excal::Image::ImageResources&   colorResources,
   Excal::Image::ImageResources&   depthResources,
   std::vector<vk::Buffer>&        uniformBuffers,
+  std::vector<vk::Buffer>&        dynamicUniformBuffers,
   std::vector<VmaAllocation>&     uniformBufferAllocations,
+  std::vector<VmaAllocation>&     dynamicUniformBufferAllocations,
   vk::RenderPass&                 renderPass,
   vk::Pipeline&                   graphicsPipeline,
   vk::PipelineCache&              pipelineCache,
@@ -64,7 +64,10 @@ void recreateSwapchain(
   Excal::Image::ImageResources&     colorResources,
   Excal::Image::ImageResources&     depthResources,
   std::vector<vk::Buffer>&          uniformBuffers,
-  std::vector<VmaAllocation>&       uniformBufferAllocations,
+  std::vector<vk::Buffer>&          dynamicUniformBuffers,
+  const size_t                      dynamicAlignment,
+  std::vector<VmaAllocation>&       dynamicBufferAllocations,
+  std::vector<VmaAllocation>&       dynamicUniformBufferAllocations,
   vk::RenderPass&                   renderPass,
   vk::Pipeline&                     graphicsPipeline,
   vk::PipelineLayout&               pipelineLayout,
