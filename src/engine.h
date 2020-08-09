@@ -115,8 +115,9 @@ private:
   void cleanup();
   void mainLoop();
 
-  void cleanupSwapchain();
+  void createSwapchainObjects();
   void recreateSwapchain();
+  void cleanupSwapchain();
   void drawFrame(size_t& currentFrame);
 
 public:

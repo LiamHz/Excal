@@ -92,22 +92,6 @@ void Engine::initVulkan()
 
   vmaCreateAllocator(&allocatorInfo, &allocator);
 
-  // Create swapchain and image views
-  auto swapchainState = Excal::Swapchain::createSwapchain(
-    physicalDevice, device,
-    surface, window,
-    queueFamilyIndices
-  );
-
-  swapchain            = swapchainState.swapchain;
-  swapchainImageFormat = swapchainState.swapchainImageFormat;
-  swapchainExtent      = swapchainState.swapchainExtent;
-  swapchainImages      = device.getSwapchainImagesKHR(swapchain);
-
-  swapchainImageViews = Excal::Image::createImageViews(
-    device, swapchainImages, swapchainImageFormat
-  );
-
   // Create sync objects for each frame in flight
   imageAvailableSemaphores.resize(config.maxFramesInFlight);
   renderFinishedSemaphores.resize(config.maxFramesInFlight);
@@ -123,56 +107,12 @@ void Engine::initVulkan()
     );
   }
 
-  depthFormat = Excal::Image::findDepthFormat(physicalDevice);
-
-  renderPass = Excal::Pipeline::createRenderPass(
-    device,
-    depthFormat,
-    swapchainImageFormat,
-    msaaSamples
-  );
-
   descriptorSetLayout = Excal::Descriptor::createDescriptorSetLayout(
     device, config.models.size()
   );
 
-  // TODO Fill in the create info
-  pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
-
-  vk::PushConstantRange pushConstantRange(
-    vk::ShaderStageFlagBits::eFragment, 0, sizeof(int)
-  );
-
-  pipelineLayout = device.createPipelineLayout(
-    vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 1, &pushConstantRange)
-  );
-
-  graphicsPipeline = Excal::Pipeline::createGraphicsPipeline(
-    device,     pipelineLayout,  pipelineCache,
-    renderPass, swapchainExtent, msaaSamples
-  );
-
   commandPool = device.createCommandPool(
     vk::CommandPoolCreateInfo({}, queueFamilyIndices.graphicsFamily.value())
-  );
-
-  colorResources = Excal::Image::createColorResources(
-    physicalDevice,  device,
-    allocator,       swapchainImageFormat,
-    swapchainExtent, msaaSamples
-  );
-
-  depthResources = Excal::Image::createDepthResources(
-    physicalDevice,       device,
-    allocator,            depthFormat,
-    swapchainImageFormat, swapchainExtent,
-    msaaSamples
-  );
-
-  swapchainFramebuffers = Excal::Buffer::createFramebuffers(
-    device,                   swapchainImageViews,
-    colorResources.imageView, depthResources.imageView,
-    renderPass,               swapchainExtent
   );
 
   // Create texture resources for each model
@@ -184,6 +124,10 @@ void Engine::initVulkan()
         graphicsQueue,  model.texturePath
       )
     );
+  }
+
+  for (auto& texture : textures) {
+    textureImageViews.push_back(texture.imageView);
   }
 
   textureSampler = Excal::Image::createTextureImageSampler(device);
@@ -221,13 +165,7 @@ void Engine::initVulkan()
     vk::BufferUsageFlagBits::eVertexBuffer
   );
 
-  uniformBufferAllocations.resize(swapchainImageViews.size());
-
-  uniformBuffers = Excal::Buffer::createUniformBuffers(
-    physicalDevice, device,
-    allocator,      uniformBufferAllocations
-  );
-
+  // Set alignment for dynamic uniform buffers
   auto deviceProps = physicalDevice.getProperties();
   size_t minUboAlignment = deviceProps.limits.minUniformBufferOffsetAlignment;
 
@@ -237,7 +175,80 @@ void Engine::initVulkan()
                        & ~(minUboAlignment - 1);
   }
 
+  createSwapchainObjects();
+}
+
+void Engine::createSwapchainObjects()
+{
+  auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
+
+  // Create swapchain and image views
+  auto swapchainState = Excal::Swapchain::createSwapchain(
+    physicalDevice, device,
+    surface, window,
+    queueFamilyIndices
+  );
+
+  swapchain            = swapchainState.swapchain;
+  swapchainImageFormat = swapchainState.swapchainImageFormat;
+  swapchainExtent      = swapchainState.swapchainExtent;
+  swapchainImages      = device.getSwapchainImagesKHR(swapchain);
+
+  swapchainImageViews = Excal::Image::createImageViews(
+    device, swapchainImages, swapchainImageFormat
+  );
+
+  depthFormat = Excal::Image::findDepthFormat(physicalDevice);
+
+  renderPass = Excal::Pipeline::createRenderPass(
+    device,
+    depthFormat,
+    swapchainImageFormat,
+    msaaSamples
+  );
+
+  // TODO Fill in the create info
+  pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
+
+  vk::PushConstantRange pushConstantRange(
+    vk::ShaderStageFlagBits::eFragment, 0, sizeof(int)
+  );
+
+  pipelineLayout = device.createPipelineLayout(
+    vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 1, &pushConstantRange)
+  );
+
+  graphicsPipeline = Excal::Pipeline::createGraphicsPipeline(
+    device,     pipelineLayout,  pipelineCache,
+    renderPass, swapchainExtent, msaaSamples
+  );
+
+  colorResources = Excal::Image::createColorResources(
+    physicalDevice,  device,
+    allocator,       swapchainImageFormat,
+    swapchainExtent, msaaSamples
+  );
+
+  depthResources = Excal::Image::createDepthResources(
+    physicalDevice,       device,
+    allocator,            depthFormat,
+    swapchainImageFormat, swapchainExtent,
+    msaaSamples
+  );
+
+  swapchainFramebuffers = Excal::Buffer::createFramebuffers(
+    device,                   swapchainImageViews,
+    colorResources.imageView, depthResources.imageView,
+    renderPass,               swapchainExtent
+  );
+
+  uniformBufferAllocations.resize(swapchainImageViews.size());
   dynamicUniformBufferAllocations.resize(swapchainImageViews.size());
+
+  uniformBuffers = Excal::Buffer::createUniformBuffers(
+    physicalDevice, device,
+    allocator,      uniformBufferAllocations
+  );
 
   dynamicUniformBuffers = Excal::Buffer::createDynamicUniformBuffers(
     uboDynamicData, dynamicAlignment,
@@ -249,10 +260,6 @@ void Engine::initVulkan()
   descriptorPool = Excal::Descriptor::createDescriptorPool(
     device, swapchainImages.size(), textures.size()
   );
-
-  for (auto& texture : textures) {
-    textureImageViews.push_back(texture.imageView);
-  }
 
   descriptorSets = Excal::Descriptor::createDescriptorSets(
     device,            swapchainImages.size(),
@@ -269,108 +276,17 @@ void Engine::initVulkan()
   );
 }
 
-void Engine::recreateSwapchain()
+void Engine::mainLoop()
 {
-  // Handle widow minimization
-  int width = 0, height = 0;
-  glfwGetFramebufferSize(window, &width, &height);
+  size_t currentFrame = 0;
 
-  while (width == 0 || height == 0) {
-    glfwGetFramebufferSize(window, &width, &height);
-    glfwWaitEvents();
+  while (!glfwWindowShouldClose(window))
+  {
+    glfwPollEvents();
+    drawFrame(currentFrame);
   }
 
   device.waitIdle();
-
-  cleanupSwapchain();
-
-  auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
-
-  auto swapchainState = Excal::Swapchain::createSwapchain(
-    physicalDevice,
-    device,
-    surface,
-    window,
-    queueFamilyIndices
-  );
-
-  swapchain            = swapchainState.swapchain;
-  swapchainImageFormat = swapchainState.swapchainImageFormat;
-  swapchainExtent      = swapchainState.swapchainExtent;
-  swapchainImages      = device.getSwapchainImagesKHR(swapchain);
-
-  swapchainImageViews = Excal::Image::createImageViews(
-    device, swapchainImages, swapchainImageFormat
-  );
-
-  renderPass = Excal::Pipeline::createRenderPass(
-    device,
-    depthFormat,
-    swapchainImageFormat,
-    msaaSamples
-  );
-
-  // TODO Fill in the create info
-  pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
-
-  pipelineLayout = device.createPipelineLayout(
-    vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 0, nullptr)
-  );
-
-  graphicsPipeline = Excal::Pipeline::createGraphicsPipeline(
-    device,
-    pipelineLayout,
-    pipelineCache,
-    renderPass,
-    swapchainExtent,
-    msaaSamples
-  );
-
-  // Resource creation
-  colorResources = Excal::Image::createColorResources(
-    physicalDevice,  device,
-    allocator,       swapchainImageFormat,
-    swapchainExtent, msaaSamples
-  );
-
-  depthResources = Excal::Image::createDepthResources(
-    physicalDevice,       device,
-    allocator,            depthFormat,
-    swapchainImageFormat, swapchainExtent,
-    msaaSamples
-  );
-
-  swapchainFramebuffers = Excal::Buffer::createFramebuffers(
-    device,
-    swapchainImageViews,
-    colorResources.imageView,
-    depthResources.imageView,
-    renderPass,
-    swapchainExtent
-  );
-
-  uniformBuffers = Excal::Buffer::createUniformBuffers(
-    physicalDevice, device,
-    allocator,      uniformBufferAllocations
-  );
-
-  descriptorPool = Excal::Descriptor::createDescriptorPool(
-    device, swapchainImages.size(), textureImageViews.size()
-  );
-
-  descriptorSets = Excal::Descriptor::createDescriptorSets(
-    device,            swapchainImages.size(),
-    descriptorPool,    descriptorSetLayout,
-    uniformBuffers,    dynamicUniformBuffers,
-    textureImageViews, textureSampler
-  );
-
-  commandBuffers = Excal::Buffer::createCommandBuffers(
-    device,          commandPool,      swapchainFramebuffers,
-    swapchainExtent, graphicsPipeline, pipelineLayout,
-    indexCounts,     indexBuffer,      vertexBuffer,
-    renderPass,      descriptorSets,   dynamicAlignment
-  );
 }
 
 void Engine::drawFrame(size_t& currentFrame)
@@ -445,17 +361,21 @@ void Engine::drawFrame(size_t& currentFrame)
   currentFrame = (currentFrame + 1) % config.maxFramesInFlight;
 }
 
-void Engine::mainLoop()
+void Engine::recreateSwapchain()
 {
-  size_t currentFrame = 0;
+  // Handle widow minimization
+  int width = 0, height = 0;
+  glfwGetFramebufferSize(window, &width, &height);
 
-  while (!glfwWindowShouldClose(window))
-  {
-    glfwPollEvents();
-    drawFrame(currentFrame);
+  while (width == 0 || height == 0) {
+    glfwGetFramebufferSize(window, &width, &height);
+    glfwWaitEvents();
   }
 
   device.waitIdle();
+
+  cleanupSwapchain();
+  createSwapchainObjects();
 }
 
 void Engine::cleanupSwapchain()
