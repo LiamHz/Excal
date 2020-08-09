@@ -97,10 +97,12 @@ vk::Pipeline createGraphicsPipeline(
   const vk::PipelineCache&       pipelineCache,
   const vk::RenderPass&          renderPass,
   const vk::Extent2D             swapchainExtent,
-  const vk::SampleCountFlagBits& msaaSamples
+  const vk::SampleCountFlagBits& msaaSamples,
+  const std::string&             vertShaderPath,
+  const std::string&             fragShaderPath
 ) {
-  auto vertShaderModule = createShaderModule(device, "../shaders/shader.vert.spv");
-  auto fragShaderModule = createShaderModule(device, "../shaders/shader.frag.spv");
+  auto vertShaderModule = createShaderModule(device, vertShaderPath);
+  auto fragShaderModule = createShaderModule(device, fragShaderPath);
 
   std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = {
     vk::PipelineShaderStageCreateInfo(

@@ -231,8 +231,10 @@ void Engine::createSwapchainObjects()
   cacheFile.close();
 
   graphicsPipeline = Excal::Pipeline::createGraphicsPipeline(
-    device,     pipelineLayout,  pipelineCache,
-    renderPass, swapchainExtent, msaaSamples
+    device,                pipelineLayout,
+    pipelineCache,         renderPass,
+    swapchainExtent,       msaaSamples,
+    config.vertShaderPath, config.fragShaderPath
   );
 
   // Create resources

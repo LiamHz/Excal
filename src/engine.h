@@ -102,6 +102,8 @@ private:
 
   struct EngineConfig {
     std::vector<Excal::Model::Model> models;
+    std::string vertShaderPath;
+    std::string fragShaderPath;
     std::string appName   = "Excal Test App";
     int appVersion        = 1.0;
     uint32_t windowWidth  = 1440;

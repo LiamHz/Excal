@@ -25,6 +25,8 @@ int main()
   auto config = excal.createEngineConfig();
 
   config.models = { model1, model2, model3};
+  config.vertShaderPath = "../shaders/shader.vert.spv";
+  config.fragShaderPath = "../shaders/shader.frag.spv";
 
   excal.init(config);
   excal.run();
