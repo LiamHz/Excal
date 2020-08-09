@@ -26,7 +26,6 @@
 #include "image.h"
 #include "pipeline.h"
 #include "descriptor.h"
-#include "frame.h"
 #include "utils.h"
 
 namespace Excal
@@ -270,6 +269,182 @@ void Engine::initVulkan()
   );
 }
 
+void Engine::recreateSwapchain()
+{
+  // Handle widow minimization
+  int width = 0, height = 0;
+  glfwGetFramebufferSize(window, &width, &height);
+
+  while (width == 0 || height == 0) {
+    glfwGetFramebufferSize(window, &width, &height);
+    glfwWaitEvents();
+  }
+
+  device.waitIdle();
+
+  cleanupSwapchain();
+
+  auto queueFamilyIndices = Excal::Device::findQueueFamilies(physicalDevice, surface);
+
+  auto swapchainState = Excal::Swapchain::createSwapchain(
+    physicalDevice,
+    device,
+    surface,
+    window,
+    queueFamilyIndices
+  );
+
+  swapchain            = swapchainState.swapchain;
+  swapchainImageFormat = swapchainState.swapchainImageFormat;
+  swapchainExtent      = swapchainState.swapchainExtent;
+  swapchainImages      = device.getSwapchainImagesKHR(swapchain);
+
+  swapchainImageViews = Excal::Image::createImageViews(
+    device, swapchainImages, swapchainImageFormat
+  );
+
+  renderPass = Excal::Pipeline::createRenderPass(
+    device,
+    depthFormat,
+    swapchainImageFormat,
+    msaaSamples
+  );
+
+  // TODO Fill in the create info
+  pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
+
+  pipelineLayout = device.createPipelineLayout(
+    vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 0, nullptr)
+  );
+
+  graphicsPipeline = Excal::Pipeline::createGraphicsPipeline(
+    device,
+    pipelineLayout,
+    pipelineCache,
+    renderPass,
+    swapchainExtent,
+    msaaSamples
+  );
+
+  // Resource creation
+  colorResources = Excal::Image::createColorResources(
+    physicalDevice,  device,
+    allocator,       swapchainImageFormat,
+    swapchainExtent, msaaSamples
+  );
+
+  depthResources = Excal::Image::createDepthResources(
+    physicalDevice,       device,
+    allocator,            depthFormat,
+    swapchainImageFormat, swapchainExtent,
+    msaaSamples
+  );
+
+  swapchainFramebuffers = Excal::Buffer::createFramebuffers(
+    device,
+    swapchainImageViews,
+    colorResources.imageView,
+    depthResources.imageView,
+    renderPass,
+    swapchainExtent
+  );
+
+  uniformBuffers = Excal::Buffer::createUniformBuffers(
+    physicalDevice, device,
+    allocator,      uniformBufferAllocations
+  );
+
+  descriptorPool = Excal::Descriptor::createDescriptorPool(
+    device, swapchainImages.size(), textureImageViews.size()
+  );
+
+  descriptorSets = Excal::Descriptor::createDescriptorSets(
+    device,            swapchainImages.size(),
+    descriptorPool,    descriptorSetLayout,
+    uniformBuffers,    dynamicUniformBuffers,
+    textureImageViews, textureSampler
+  );
+
+  commandBuffers = Excal::Buffer::createCommandBuffers(
+    device,          commandPool,      swapchainFramebuffers,
+    swapchainExtent, graphicsPipeline, pipelineLayout,
+    indexCounts,     indexBuffer,      vertexBuffer,
+    renderPass,      descriptorSets,   dynamicAlignment
+  );
+}
+
+void Engine::drawFrame(size_t& currentFrame)
+{
+  device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
+  uint32_t imageIndex;
+  vk::Result result = device.acquireNextImageKHR(
+    swapchain, UINT64_MAX,
+    imageAvailableSemaphores[currentFrame],
+    nullptr, &imageIndex
+  );
+
+  // Usually happens after a window resize
+  if (   result == vk::Result::eErrorOutOfDateKHR
+      || result == vk::Result::eSuboptimalKHR
+  ) {
+    recreateSwapchain();
+    return;
+  }
+
+  Excal::Buffer::updateUniformBuffer(
+    allocator, uniformBufferAllocations,
+    device,    swapchainExtent,
+    imageIndex
+  );
+
+  Excal::Buffer::updateDynamicUniformBuffer(
+    uboDynamicData, dynamicAlignment,
+    allocator,      dynamicUniformBufferAllocations,
+    device,         swapchainExtent,
+    imageIndex,     config.models
+  );
+
+  // Check if a previous frame is using this image
+  // (i.e. there is its fence to wait on)
+  if (imagesInFlight[imageIndex]) {
+    device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+  }
+  // Mark the image as now being in use by this frame
+  imagesInFlight[imageIndex] = inFlightFences[currentFrame];
+
+  vk::Semaphore signalSemaphores[]    = {renderFinishedSemaphores[currentFrame]};
+  vk::Semaphore waitSemaphores[]      = {imageAvailableSemaphores[currentFrame]};
+  vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
+
+  vk::SubmitInfo submitInfo(
+    1, waitSemaphores, waitStages,
+    1, &commandBuffers[imageIndex],
+    1, signalSemaphores
+  );
+
+  device.resetFences(1, &inFlightFences[currentFrame]);
+
+  graphicsQueue.submit(1, &submitInfo, inFlightFences[currentFrame]);
+
+  vk::SwapchainKHR swapchains[] = {swapchain};
+
+  result = presentQueue.presentKHR(
+    vk::PresentInfoKHR(1, signalSemaphores, 1, swapchains, &imageIndex)
+  );
+
+  if (   result == vk::Result::eErrorOutOfDateKHR
+      || result == vk::Result::eSuboptimalKHR
+      || framebufferResized
+  ) {
+    framebufferResized = false;
+    recreateSwapchain();
+    return;
+  }
+
+  currentFrame = (currentFrame + 1) % config.maxFramesInFlight;
+}
+
 void Engine::mainLoop()
 {
   size_t currentFrame = 0;
@@ -277,43 +452,47 @@ void Engine::mainLoop()
   while (!glfwWindowShouldClose(window))
   {
     glfwPollEvents();
-    Excal::Frame::drawFrame(
-      // Required for call to Excal::Swapchain::recreateSwpachain
-      // but otherwise not for drawFrame()
-      window,          descriptorPool,        commandBuffers,
-      swapchain,       swapchainImageFormat,  swapchainExtent,
-      swapchainImages, swapchainImageViews,   swapchainFramebuffers,
-      colorResources,  depthResources,        uniformBuffers,
-      renderPass,      graphicsPipeline,      pipelineLayout,
-      pipelineCache,   descriptorSets,        physicalDevice,
-      surface,         msaaSamples,           depthFormat,
-      commandPool,     indexCounts,           indexBuffer,
-      vertexBuffer,    descriptorSetLayout,   textureImageViews,
-      textureSampler,  dynamicUniformBuffers,
-
-      // Required for regular drawFrame() functionality
-      currentFrame,             framebufferResized,              allocator,
-      uniformBufferAllocations, dynamicUniformBufferAllocations, dynamicAlignment,
-      uboDynamicData,           imagesInFlight,                  device,
-      graphicsQueue,            presentQueue,                    inFlightFences,
-      imageAvailableSemaphores, renderFinishedSemaphores,        config.maxFramesInFlight,
-      config.models
-    );
+    drawFrame(currentFrame);
   }
 
   device.waitIdle();
 }
 
+void Engine::cleanupSwapchain()
+{
+  device.destroyImageView(colorResources.imageView);
+  device.destroyImageView(depthResources.imageView);
+
+  vmaDestroyImage(allocator, colorResources.image, colorResources.imageAllocation);
+  vmaDestroyImage(allocator, depthResources.image, depthResources.imageAllocation);
+
+  for (auto framebuffer : swapchainFramebuffers) {
+    device.destroyFramebuffer(framebuffer);
+  }
+
+  device.freeCommandBuffers(commandPool, commandBuffers);
+
+  device.destroyDescriptorPool(descriptorPool);
+
+  device.destroyPipeline(graphicsPipeline);
+  device.destroyPipelineCache(pipelineCache);
+  device.destroyPipelineLayout(pipelineLayout);
+  device.destroyRenderPass(renderPass);
+
+  for (size_t i=0; i < swapchainImageViews.size(); i++) {
+    device.destroyImageView(swapchainImageViews[i]);
+    vmaDestroyBuffer(allocator, uniformBuffers[i], uniformBufferAllocations[i]);
+    vmaDestroyBuffer(
+      allocator, dynamicUniformBuffers[i], dynamicUniformBufferAllocations[i]
+    );
+  }
+
+  device.destroySwapchainKHR(swapchain);
+}
+
 void Engine::cleanup()
 {
-  Excal::Swapchain::cleanupSwapchain(
-    device,                   allocator,                       commandPool,
-    descriptorPool,           commandBuffers,                  swapchain,
-    swapchainImageViews,      swapchainFramebuffers,           colorResources,
-    depthResources,           uniformBuffers,                  dynamicUniformBuffers,
-    uniformBufferAllocations, dynamicUniformBufferAllocations, renderPass,
-    graphicsPipeline,         pipelineCache,                   pipelineLayout
-  );
+  cleanupSwapchain();
 
   for (int i=0; i < config.maxFramesInFlight; i++) {
     device.destroySemaphore(imageAvailableSemaphores[i]);

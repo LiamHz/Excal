@@ -4,6 +4,7 @@ captures/
 *.spv
 
 *.vim
+*.swp
 .DS_Store
 design.md
 .ccls

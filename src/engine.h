@@ -115,6 +115,10 @@ private:
   void cleanup();
   void mainLoop();
 
+  void cleanupSwapchain();
+  void recreateSwapchain();
+  void drawFrame(size_t& currentFrame);
+
 public:
   Engine();
   ~Engine();
