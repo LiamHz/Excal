@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <vector>
 #include <array>
 
@@ -207,9 +208,6 @@ void Engine::createSwapchainObjects()
     msaaSamples
   );
 
-  // TODO Fill in the create info
-  pipelineCache = device.createPipelineCache(vk::PipelineCacheCreateInfo());
-
   vk::PushConstantRange pushConstantRange(
     vk::ShaderStageFlagBits::eFragment, 0, sizeof(int)
   );
@@ -218,11 +216,26 @@ void Engine::createSwapchainObjects()
     vk::PipelineLayoutCreateInfo({}, 1, &descriptorSetLayout, 1, &pushConstantRange)
   );
 
+  // Read pipeline cache data from disk
+  // If file for pipeline cach doesn't exist, cacheFileSize will be 0
+  // which causes pipelineCache to not set initialData (i.e. no errors!)
+  void* pCacheData;
+  auto cacheFile = std::fstream("pipeline-cache", std::ios::out | std::ios::binary);
+  auto cacheFileSize = cacheFile.tellg();
+  cacheFile.read((char*) pCacheData, cacheFileSize);
+
+  pipelineCache = device.createPipelineCache(
+    vk::PipelineCacheCreateInfo({}, cacheFileSize, pCacheData)
+  );
+
+  cacheFile.close();
+
   graphicsPipeline = Excal::Pipeline::createGraphicsPipeline(
     device,     pipelineLayout,  pipelineCache,
     renderPass, swapchainExtent, msaaSamples
   );
 
+  // Create resources
   colorResources = Excal::Image::createColorResources(
     physicalDevice,  device,
     allocator,       swapchainImageFormat,
@@ -412,6 +425,14 @@ void Engine::cleanupSwapchain()
 
 void Engine::cleanup()
 {
+  // Write pipeline cache data to disk
+  auto pipelineCacheData = device.getPipelineCacheData(pipelineCache);
+
+  auto cacheFile = std::fstream("pipeline-cache", std::ios::out | std::ios::binary);
+
+  cacheFile.write((char*) &pipelineCacheData[0], sizeof(pipelineCacheData));
+  cacheFile.close();
+
   cleanupSwapchain();
 
   for (int i=0; i < config.maxFramesInFlight; i++) {
