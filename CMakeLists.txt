@@ -9,9 +9,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 -fsanitize=address -std=c++17" )
 # Optimized build
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++17" )
 
-file(GLOB src_files "src/*.h" "src/*.cpp")
+file(GLOB SOURCE_FILES "src/*.cpp" "app/*.cpp")
+file(GLOB HEADER_FILES "src/*.h" "app/*.h")
 
-add_executable(${PROJECT_NAME} ${src_files})
+include_directories("src" "app")
+
+add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 find_package(Vulkan REQUIRED)
 find_package(glfw3 3.3 REQUIRED)
