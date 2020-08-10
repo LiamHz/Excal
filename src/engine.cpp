@@ -138,11 +138,8 @@ void Engine::initVulkan()
   std::vector<Vertex>   vertices;
 
   for (auto& model : config.models) {
-    // Make indices relative for each model
-    for (auto& index : model.indices) {
-      index += vertices.size();
-    }
     indexCounts.push_back(model.indices.size());
+    vertexCounts.push_back(model.vertices.size());
     indices.insert( indices.end(),  model.indices.begin(),  model.indices.end());
     vertices.insert(vertices.end(), model.vertices.begin(), model.vertices.end());
   }
@@ -284,10 +281,13 @@ void Engine::createSwapchainObjects()
   );
 
   commandBuffers = Excal::Buffer::createCommandBuffers(
-    device,          commandPool,      swapchainFramebuffers,
-    swapchainExtent, graphicsPipeline, pipelineLayout,
-    indexCounts,     indexBuffer,      vertexBuffer,
-    renderPass,      descriptorSets,   dynamicAlignment
+    device,                commandPool,
+    swapchainFramebuffers, swapchainExtent,
+    graphicsPipeline,      pipelineLayout,
+    indexCounts,           vertexCounts,
+    indexBuffer,           vertexBuffer,
+    renderPass,            descriptorSets,
+    dynamicAlignment
   );
 }
 

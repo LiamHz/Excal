@@ -74,6 +74,7 @@ private:
 
   // Set by Excal::Buffer
   std::vector<uint32_t>          indexCounts;
+  std::vector<uint32_t>          vertexCounts;
   vk::Buffer                     indexBuffer;
   vk::Buffer                     vertexBuffer;
   vk::CommandPool                commandPool;

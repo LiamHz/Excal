@@ -53,6 +53,7 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
   const vk::Pipeline&                   graphicsPipeline,
   const vk::PipelineLayout&             pipelineLayout,
   const std::vector<uint32_t>&          indexCounts,
+  const std::vector<uint32_t>&          vertexCounts,
   const vk::Buffer&                     indexBuffer,
   const vk::Buffer&                     vertexBuffer,
   const vk::RenderPass&                 renderPass,
@@ -107,7 +108,8 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
     cmd.bindVertexBuffers(0, 1, &vertexBuffer, offsets);
     cmd.bindIndexBuffer(indexBuffer, 0, vk::IndexType::eUint32);
 
-    uint32_t offset = 0;
+    uint32_t firstIndex   = 0;
+    uint32_t vertexOffset = 0;
 
     for (int i=0; i < indexCounts.size(); i++) {
       // Dynamic descriptor
@@ -126,8 +128,9 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
         0, sizeof(int), &i
       );
 
-      cmd.drawIndexed(indexCounts[i], 1, offset, 0, 0);
-      offset += indexCounts[i];
+      cmd.drawIndexed(indexCounts[i], 1, firstIndex, vertexOffset, 0);
+      firstIndex   += indexCounts[i];
+      vertexOffset += vertexCounts[i];
     }
 
     cmd.endRenderPass();

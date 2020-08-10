@@ -29,6 +29,7 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
   const vk::Pipeline&                   graphicsPipeline,
   const vk::PipelineLayout&             pipelineLayout,
   const std::vector<uint32_t>&          indexCounts,
+  const std::vector<uint32_t>&          vertexCounts,
   const vk::Buffer&                     indexBuffer,
   const vk::Buffer&                     vertexBuffer,
   const vk::RenderPass&                 renderPass,
