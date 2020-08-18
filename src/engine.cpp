@@ -325,10 +325,12 @@ void Engine::drawFrame(size_t& currentFrame)
   }
 
   Excal::Buffer::updateUniformBuffer(
-    allocator,  uniformBufferAllocations,
-    device,     swapchainExtent,
-    imageIndex, config.cameraPos,
-    config.farClipPlane
+    allocator,           uniformBufferAllocations,
+    device,              swapchainExtent,
+    imageIndex,
+    config.farClipPlane,      config.cameraMovmentLength,
+    config.cameraStartPos,    config.cameraEndPos,
+    config.cameraStartLookAt, config.cameraEndLookAt
   );
 
   Excal::Buffer::updateDynamicUniformBuffer(

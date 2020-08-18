@@ -71,8 +71,12 @@ void updateUniformBuffer(
   const vk::Device&           device,
   const vk::Extent2D&         swapchainExtent,
   const uint32_t              currentImage,
-  const glm::vec3&            cameraPos,
-  const float                 farClipPlane
+  const float                 farClipPlane,
+  const float                 cameraMovmentLength,
+  const glm::vec3&            cameraStartPos,
+  const glm::vec3&            cameraEndPos,
+  const glm::vec3&            cameraStartLookAt,
+  const glm::vec3&            cameraEndLookAt
 );
 
 void updateDynamicUniformBuffer(

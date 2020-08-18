@@ -248,15 +248,45 @@ void updateUniformBuffer(
   const vk::Device&           device,
   const vk::Extent2D&         swapchainExtent,
   const uint32_t              currentImage,
-  const glm::vec3&            cameraPos,
-  const float                 farClipPlane
+  const float                 farClipPlane,
+  const float                 cameraMovmentLength,
+  const glm::vec3&            cameraStartPos,
+  const glm::vec3&            cameraEndPos,
+  const glm::vec3&            cameraStartLookAt,
+  const glm::vec3&            cameraEndLookAt
 ) {
   UniformBufferObject ubo{};
+  auto cameraPos    = cameraStartPos;
+  auto cameraLookAt = cameraStartLookAt;
+
+  // Automatic animation of camera position and look at
+  if (cameraStartPos != cameraEndPos || cameraStartLookAt != cameraEndLookAt)
+  {
+    static auto startTime = std::chrono::high_resolution_clock::now();
+    auto currentTime      = std::chrono::high_resolution_clock::now();
+
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(
+      currentTime - startTime
+    ).count();
+
+    // NOTE: cameraMovmentLength is the time it takes for the camera to move from
+    //       cameraStartPos to cameraEndPos
+    float t = std::fmod(time, cameraMovmentLength) / cameraMovmentLength;
+
+    // Lerp cameraPos and cameraLookAt
+    cameraPos = std::fmod(time, cameraMovmentLength*2.0) >= cameraMovmentLength
+              ? cameraStartPos * t + cameraEndPos * (1.0f - t)
+              : cameraStartPos * (1.0f - t) + cameraEndPos * t;
+
+    cameraLookAt = std::fmod(time, cameraMovmentLength*2.0) >= cameraMovmentLength
+                 ? cameraStartLookAt * t + cameraEndLookAt * (1.0f - t)
+                 : cameraStartLookAt * (1.0f - t) + cameraEndLookAt * t;
+  }
 
   ubo.view = glm::lookAt(
     cameraPos,
-    glm::vec3(0.0f, 0.7f, 0.0f), // 'Look-at' position
-    glm::vec3(0.0f, 1.0f, 0.0f)  // Up Axis
+    cameraLookAt,
+    glm::vec3(0.0f, 1.0f, 0.0f) // Up Axis
   );
 
   ubo.proj = glm::perspective(
@@ -304,7 +334,7 @@ void updateDynamicUniformBuffer(
 
     *modelMat = glm::rotate(
       *modelMat,
-      (i * time / 2.0f) * glm::radians(90.0f),
+      (models[i].rotationsPerSecond * time) * glm::radians(360.0f),
       glm::vec3(0.0f, 1.0f, 0.0f) // Rotation axis
     );
   }
