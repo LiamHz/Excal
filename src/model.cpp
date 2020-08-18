@@ -46,7 +46,9 @@ ModelData loadModel(
         1.0-attrib.texcoords[2 * index.texcoord_index + 1] // Flip vertical coordinate
       };
 
-      vertex.color = {1.0f, 1.0f, 1.0f};
+      // Not handled by this model loader
+      vertex.color  = {1.0f, 1.0f, 1.0f};
+      vertex.normal = {1.0f, 1.0f, 1.0f};
 
       if (uniqueVertices.count(vertex) == 0) {
         uniqueVertices[vertex] = static_cast<uint32_t>(modelData.vertices.size());
