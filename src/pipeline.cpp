@@ -99,7 +99,8 @@ vk::Pipeline createGraphicsPipeline(
   const vk::Extent2D             swapchainExtent,
   const vk::SampleCountFlagBits& msaaSamples,
   const std::string&             vertShaderPath,
-  const std::string&             fragShaderPath
+  const std::string&             fragShaderPath,
+  const std::string&             frontFace
 ) {
   auto vertShaderModule = createShaderModule(device, vertShaderPath);
   auto fragShaderModule = createShaderModule(device, fragShaderPath);
@@ -137,11 +138,15 @@ vk::Pipeline createGraphicsPipeline(
     attributeDescriptions.data()
   );
 
+  auto rasterizerFrontFace = frontFace == "clockwise"
+                             ? vk::FrontFace::eClockwise
+                             : vk::FrontFace::eCounterClockwise;
+
   vk::PipelineRasterizationStateCreateInfo rasterizer(
     {}, VK_FALSE, VK_FALSE,
     vk::PolygonMode::eFill,
     vk::CullModeFlagBits::eBack,
-    vk::FrontFace::eCounterClockwise,
+    rasterizerFrontFace,
     VK_FALSE
   );
   rasterizer.lineWidth = 1.0f;

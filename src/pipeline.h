@@ -18,7 +18,8 @@ vk::Pipeline createGraphicsPipeline(
   const vk::Extent2D             swapchainExtent,
   const vk::SampleCountFlagBits& msaaSamples,
   const std::string&             vertShaderPath,
-  const std::string&             fragShaderPath
+  const std::string&             fragShaderPath,
+  const std::string&             frontFace
 );
 
 vk::ShaderModule createShaderModule(

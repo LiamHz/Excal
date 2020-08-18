@@ -12,6 +12,7 @@
 
 #include <vector>
 #include <chrono>
+#include <math.h>
 
 #include "device.h"
 #include "structs.h"
@@ -58,7 +59,8 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
   const vk::Buffer&                     vertexBuffer,
   const vk::RenderPass&                 renderPass,
   const std::vector<vk::DescriptorSet>& descriptorSets,
-  const size_t                          dynamicAlignment
+  const size_t                          dynamicAlignment,
+  const glm::vec4&                      clearColor
 ) {
   std::vector<vk::CommandBuffer> commandBuffers(swapchainFramebuffers.size());
 
@@ -70,11 +72,13 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
     )
   );
 
-  for (size_t i=0; i < commandBuffers.size(); i++) {
-    vk::CommandBuffer& cmd = commandBuffers[i];
+  for (size_t nCmdBuffer=0; nCmdBuffer < commandBuffers.size(); nCmdBuffer++) {
+    vk::CommandBuffer& cmd = commandBuffers[nCmdBuffer];
 
     std::array<vk::ClearValue, 2> clearValues{
-      vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}),
+      vk::ClearColorValue(std::array<float, 4>{
+        clearColor.r, clearColor.g, clearColor.b, clearColor.a,
+      }),
       vk::ClearDepthStencilValue(1.0f, 0)
     };
 
@@ -83,7 +87,7 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
     cmd.beginRenderPass(
       vk::RenderPassBeginInfo(
         renderPass,
-        swapchainFramebuffers[i],
+        swapchainFramebuffers[nCmdBuffer],
         vk::Rect2D({0, 0}, swapchainExtent),
         clearValues.size(), clearValues.data()
       ),
@@ -118,7 +122,7 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
       cmd.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics,
         pipelineLayout, 0, 1,
-        &descriptorSets[i],
+        &descriptorSets[nCmdBuffer],
         1, &dynamicOffset
       );
 
@@ -243,20 +247,22 @@ void updateUniformBuffer(
   std::vector<VmaAllocation>& bufferAllocations,
   const vk::Device&           device,
   const vk::Extent2D&         swapchainExtent,
-  const uint32_t              currentImage
+  const uint32_t              currentImage,
+  const glm::vec3&            cameraPos,
+  const float                 farClipPlane
 ) {
   UniformBufferObject ubo{};
 
   ubo.view = glm::lookAt(
-    glm::vec3(0.0f, 2.0f, 5.0f), // Eye position
-    glm::vec3(0.0f, 0.7f, 0.0f), // Center position
+    cameraPos,
+    glm::vec3(0.0f, 0.7f, 0.0f), // 'Look-at' position
     glm::vec3(0.0f, 1.0f, 0.0f)  // Up Axis
   );
 
   ubo.proj = glm::perspective(
     glm::radians(45.0f),
     swapchainExtent.width / (float) swapchainExtent.height,
-    0.1f, 10.0f
+    0.1f, farClipPlane
   );
 
   // Invert Y axis to acccount for difference between OpenGL and Vulkan

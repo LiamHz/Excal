@@ -10,6 +10,7 @@
 
 #include <vk_mem_alloc.h>
 
+#include <glm/glm.hpp>
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
 #include <vector>
@@ -22,6 +23,22 @@ namespace Excal
 {
 class Engine
 {
+public:
+  struct EngineConfig {
+    std::vector<Excal::Model::Model> models;
+    std::string vertShaderPath;
+    std::string fragShaderPath;
+    std::string appName           = "Excal Test App";
+    float       appVersion        = 1.0;
+    uint32_t    windowWidth       = 1440;
+    uint32_t    windowHeight      = 900;
+    int         maxFramesInFlight = 3; // Triple buffering
+    std::string frontFace         = "counterClockwise";
+    glm::vec4   clearColor        = glm::vec4(0, 0, 0, 1);
+    glm::vec3   cameraPos         = glm::vec3(0);
+    float       farClipPlane      = 128.0;
+  };
+
 private:
   // Set by Excal::Surface
   GLFWwindow*    window;
@@ -100,17 +117,6 @@ private:
   #else
     const bool validationLayersEnabled = true;
   #endif
-
-  struct EngineConfig {
-    std::vector<Excal::Model::Model> models;
-    std::string vertShaderPath;
-    std::string fragShaderPath;
-    std::string appName   = "Excal Test App";
-    int appVersion        = 1.0;
-    uint32_t windowWidth  = 1440;
-    uint32_t windowHeight = 900;
-    int maxFramesInFlight = 3; // Triple buffering
-  };
 
   EngineConfig config;
 

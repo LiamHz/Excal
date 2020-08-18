@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 
@@ -34,7 +35,8 @@ std::vector<vk::CommandBuffer> createCommandBuffers(
   const vk::Buffer&                     vertexBuffer,
   const vk::RenderPass&                 renderPass,
   const std::vector<vk::DescriptorSet>& descriptorSets,
-  const size_t                          dynamicAlignment
+  const size_t                          dynamicAlignment,
+  const glm::vec4&                      clearColor
 );
 
 std::vector<VkFramebuffer> createFramebuffers(
@@ -68,7 +70,9 @@ void updateUniformBuffer(
   std::vector<VmaAllocation>& bufferAllocations,
   const vk::Device&           device,
   const vk::Extent2D&         swapchainExtent,
-  const uint32_t              currentImage
+  const uint32_t              currentImage,
+  const glm::vec3&            cameraPos,
+  const float                 farClipPlane
 );
 
 void updateDynamicUniformBuffer(

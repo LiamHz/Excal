@@ -231,7 +231,8 @@ void Engine::createSwapchainObjects()
     device,                pipelineLayout,
     pipelineCache,         renderPass,
     swapchainExtent,       msaaSamples,
-    config.vertShaderPath, config.fragShaderPath
+    config.vertShaderPath, config.fragShaderPath,
+    config.frontFace
   );
 
   // Create resources
@@ -287,7 +288,7 @@ void Engine::createSwapchainObjects()
     indexCounts,           vertexCounts,
     indexBuffer,           vertexBuffer,
     renderPass,            descriptorSets,
-    dynamicAlignment
+    dynamicAlignment,      config.clearColor
   );
 }
 
@@ -324,9 +325,10 @@ void Engine::drawFrame(size_t& currentFrame)
   }
 
   Excal::Buffer::updateUniformBuffer(
-    allocator, uniformBufferAllocations,
-    device,    swapchainExtent,
-    imageIndex
+    allocator,  uniformBufferAllocations,
+    device,     swapchainExtent,
+    imageIndex, config.cameraPos,
+    config.farClipPlane
   );
 
   Excal::Buffer::updateDynamicUniformBuffer(
