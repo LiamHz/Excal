@@ -1,7 +1,4 @@
-#include <chrono>
-
 #include "engine.h"
-#include "structs.h"
 
 #include "modelViewer.h"
 #include "terrainGenerator.h"
