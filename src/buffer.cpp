@@ -18,6 +18,7 @@
 #include "structs.h"
 #include "model.h"
 #include "utils.h"
+#include "camera.h"
 
 namespace Excal::Buffer
 {
@@ -249,46 +250,11 @@ void updateUniformBuffer(
   const vk::Extent2D&         swapchainExtent,
   const uint32_t              currentImage,
   const float                 farClipPlane,
-  const float                 cameraMovmentLength,
-  const glm::vec3&            cameraStartPos,
-  const glm::vec3&            cameraEndPos,
-  const glm::vec3&            cameraStartLookAt,
-  const glm::vec3&            cameraEndLookAt
+  const Excal::Camera&        camera
 ) {
   UniformBufferObject ubo{};
-  auto cameraPos    = cameraStartPos;
-  auto cameraLookAt = cameraStartLookAt;
 
-  // Automatic animation of camera position and look at
-  if (cameraStartPos != cameraEndPos || cameraStartLookAt != cameraEndLookAt)
-  {
-    static auto startTime = std::chrono::high_resolution_clock::now();
-    auto currentTime      = std::chrono::high_resolution_clock::now();
-
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(
-      currentTime - startTime
-    ).count();
-
-    // NOTE: cameraMovmentLength is the time it takes for the camera to move from
-    //       cameraStartPos to cameraEndPos
-    float t = std::fmod(time, cameraMovmentLength) / cameraMovmentLength;
-
-    // Lerp cameraPos and cameraLookAt
-    cameraPos = std::fmod(time, cameraMovmentLength*2.0) >= cameraMovmentLength
-              ? cameraStartPos * t + cameraEndPos * (1.0f - t)
-              : cameraStartPos * (1.0f - t) + cameraEndPos * t;
-
-    cameraLookAt = std::fmod(time, cameraMovmentLength*2.0) >= cameraMovmentLength
-                 ? cameraStartLookAt * t + cameraEndLookAt * (1.0f - t)
-                 : cameraStartLookAt * (1.0f - t) + cameraEndLookAt * t;
-  }
-
-  ubo.view = glm::lookAt(
-    cameraPos,
-    cameraLookAt,
-    glm::vec3(0.0f, 1.0f, 0.0f) // Up Axis
-  );
-
+  ubo.view = camera.getView();
   ubo.proj = glm::perspective(
     glm::radians(45.0f),
     swapchainExtent.width / (float) swapchainExtent.height,
@@ -298,7 +264,8 @@ void updateUniformBuffer(
   // Invert Y axis to acccount for difference between OpenGL and Vulkan
   ubo.proj[1][1] *= -1;
 
-  // TODO Don't map and unmap data every frame. Refer to other TODO in this file
+  // TODO Don't map and unmap data every frame.
+  // Refer to other TODO in this file
   void* mappedData;
   vmaMapMemory(allocator, bufferAllocations[currentImage], &mappedData);
   memcpy(mappedData, &ubo, sizeof(ubo));

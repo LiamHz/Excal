@@ -55,14 +55,6 @@ int main()
   config.vertShaderPath = "../shaders/shader.vert.spv";
   config.fragShaderPath = "../shaders/shader.frag.spv";
 
-  // A static camera is used in this example
-  // But setting different camera start/end pos or lookAt
-  // Will interpolate the camera's state over time
-  config.cameraStartPos    = glm::vec3(0.0, 1.0, 5.0);
-  config.cameraEndPos      = glm::vec3(0.0, 1.0, 5.0);
-  config.cameraStartLookAt = glm::vec3(0.0, 1.0, 0.0);
-  config.cameraEndLookAt   = glm::vec3(0.0, 1.0, 0.0);
-
   // Initialize and run Excal
   excal.init(config);
   excal.run();

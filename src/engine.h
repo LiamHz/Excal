@@ -18,6 +18,7 @@
 #include "image.h"
 #include "model.h"
 #include "structs.h"
+#include "camera.h"
 
 namespace Excal
 {
@@ -25,29 +26,24 @@ class Engine
 {
 public:
   struct EngineConfig {
+    Excal::Camera camera;
     std::vector<Excal::Model::Model> models;
     std::string vertShaderPath;
     std::string fragShaderPath;
-    std::string appName             = "Excal Test App";
-    float       appVersion          = 1.0;
-    uint32_t    windowWidth         = 1440;
-    uint32_t    windowHeight        = 900;
-    int         maxFramesInFlight   = 3; // Triple buffering
-    std::string frontFace           = "counterClockwise";
-    glm::vec4   clearColor          = glm::vec4(0, 0, 0, 1);
-    glm::vec3   cameraStartPos      = glm::vec3(0, 0, 5);
-    glm::vec3   cameraEndPos        = glm::vec3(0, 0, 5);
-    glm::vec3   cameraStartLookAt   = glm::vec3(0);
-    glm::vec3   cameraEndLookAt     = glm::vec3(0);
-    float       cameraMovmentLength = 4.0;
-    float       farClipPlane        = 128.0;
+    std::string appName           = "Excal Test App";
+    float       appVersion        = 1.0;
+    uint32_t    windowWidth       = 1440;
+    uint32_t    windowHeight      = 900;
+    int         maxFramesInFlight = 3; // Triple buffering
+    std::string frontFace         = "counterClockwise";
+    glm::vec4   clearColor        = glm::vec4(0, 0, 0, 1);
+    float       farClipPlane      = 128.0;
   };
 
 private:
   // Set by Excal::Surface
   GLFWwindow*    window;
   vk::SurfaceKHR surface;
-  bool framebufferResized = false;
 
   // Set by Excal::Debug
   VkDebugUtilsMessengerEXT debugMessenger;
@@ -122,8 +118,6 @@ private:
     const bool validationLayersEnabled = true;
   #endif
 
-  EngineConfig config;
-
   void initVulkan();
   void cleanup();
   void mainLoop();
@@ -137,6 +131,14 @@ public:
   Engine();
   ~Engine();
   int run();
+
+  // Set by GLFW callbacks
+  float lastX = 1440 / 2.0;
+  float lastY = 900 / 2.0;
+  bool firstMouse = false;
+  bool framebufferResized = false;
+
+  EngineConfig config;
 
   EngineConfig createEngineConfig()
   {

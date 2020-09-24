@@ -9,8 +9,8 @@ int main()
 
   auto config = excal.createEngineConfig();
 
-  App::ModelViewer::run(config);
-  //App::TerrainGenerator::run(config);
+  //App::ModelViewer::run(config);
+  App::TerrainGenerator::run(config);
 
   excal.init(config);
   excal.run();

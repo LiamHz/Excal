@@ -9,21 +9,15 @@ namespace App::TerrainGenerator
 void run(
   Excal::Engine::EngineConfig& config
 ) {
-  config.appName             = "vkTerrainGenerator";
-  config.windowWidth         = 1440*0.7;
-  config.windowHeight        = 900 *0.7;
-  config.vertShaderPath      = "../shaders/terrainShader.vert.spv";
-  config.fragShaderPath      = "../shaders/terrainShader.frag.spv";
-  config.frontFace           = "clockwise";
-  config.clearColor          = glm::vec4(0.53, 0.81, 0.92, 1.0);
-  config.farClipPlane        = 512.0;
-  config.cameraMovmentLength = 6.0;
-  config.cameraStartPos      = glm::vec3(192, 70, 320);
-  config.cameraEndPos        = glm::vec3(192, 70, 96);
-  config.cameraStartLookAt
-    = glm::vec3(config.cameraStartPos.x, 0, config.cameraStartPos.z - 128);
-  config.cameraEndLookAt
-    = glm::vec3(config.cameraEndPos.x,   0, config.cameraEndPos.z   - 128);
+  config.appName        = "vkTerrainGenerator";
+  config.windowWidth    = 1440*0.7;
+  config.windowHeight   = 900 *0.7;
+  config.vertShaderPath = "../shaders/terrainShader.vert.spv";
+  config.fragShaderPath = "../shaders/terrainShader.frag.spv";
+  config.frontFace      = "clockwise";
+  config.clearColor     = glm::vec4(0.53, 0.81, 0.92, 1.0);
+  config.farClipPlane   = 512.0;
+  config.camera.pos     = glm::vec3(192, 70, 320);
 
   // App params
   const int xMapChunks    = 3;

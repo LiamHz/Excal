@@ -28,6 +28,7 @@
 #include "pipeline.h"
 #include "descriptor.h"
 #include "utils.h"
+#include "camera.h"
 
 namespace Excal
 {
@@ -46,7 +47,7 @@ void Engine::initVulkan()
   const auto debugMessengerCreateInfo  = Excal::Debug::getDebugMessengerCreateInfo();
 
   window = Excal::Surface::initWindow(
-    &framebufferResized,
+    this,
     config.windowWidth,
     config.windowHeight,
     config.appName.c_str()
@@ -296,9 +297,23 @@ void Engine::mainLoop()
 {
   size_t currentFrame = 0;
 
+  float lastFrameTime    = 0.0f;
+  float currentFrameTime = 0.0f;
+  float deltaTime        = 0.0f;
+
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  glfwSetCursorPosCallback(window, config.camera.mouseCallback);
+
   while (!glfwWindowShouldClose(window))
   {
     glfwPollEvents();
+
+    currentFrameTime = glfwGetTime();
+    deltaTime        = currentFrameTime - lastFrameTime;
+    lastFrameTime    = currentFrameTime;
+
+    config.camera.updateView();
+    config.camera.handleInput(window, deltaTime);
     drawFrame(currentFrame);
   }
 
@@ -325,12 +340,10 @@ void Engine::drawFrame(size_t& currentFrame)
   }
 
   Excal::Buffer::updateUniformBuffer(
-    allocator,           uniformBufferAllocations,
-    device,              swapchainExtent,
-    imageIndex,
-    config.farClipPlane,      config.cameraMovmentLength,
-    config.cameraStartPos,    config.cameraEndPos,
-    config.cameraStartLookAt, config.cameraEndLookAt
+    allocator,    uniformBufferAllocations,
+    device,       swapchainExtent,
+    imageIndex,   config.farClipPlane,
+    config.camera
   );
 
   Excal::Buffer::updateDynamicUniformBuffer(

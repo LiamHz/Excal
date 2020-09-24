@@ -4,10 +4,12 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
 
+#include "engine.h"
+
 namespace Excal::Surface
 {
 GLFWwindow* initWindow(
-  bool *framebufferResized,
+  Excal::Engine* engine,
   const uint32_t windowWidth,
   const uint32_t windowHeight,
   const char*    windowName

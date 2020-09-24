@@ -3,10 +3,12 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include "engine.h"
+
 namespace Excal::Surface
 {
 GLFWwindow* initWindow(
-  bool *framebufferResized,
+  Excal::Engine* engine,
   const uint32_t windowWidth,
   const uint32_t windowHeight,
   const char*    windowName
@@ -20,7 +22,7 @@ GLFWwindow* initWindow(
     nullptr,     nullptr
   );
 
-  glfwSetWindowUserPointer(window, framebufferResized);
+  glfwSetWindowUserPointer(window, engine);
   glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 
   return window;
@@ -42,7 +44,7 @@ vk::SurfaceKHR createSurface(
 
 void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
-  auto framebufferResized = static_cast<bool*>(glfwGetWindowUserPointer(window));
-  *framebufferResized = true;
+  auto engine = static_cast<Excal::Engine*>(glfwGetWindowUserPointer(window));
+  engine->framebufferResized = true;
 }
 }

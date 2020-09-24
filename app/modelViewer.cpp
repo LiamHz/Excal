@@ -34,10 +34,5 @@ void run(
   config.models         = { model1, model2, model3 };
   config.vertShaderPath = "../shaders/shader.vert.spv";
   config.fragShaderPath = "../shaders/shader.frag.spv";
-
-  config.cameraStartPos    = glm::vec3(0.0, 1.0, 5.0);
-  config.cameraEndPos      = glm::vec3(0.0, 1.0, 5.0);
-  config.cameraStartLookAt = glm::vec3(0.0, 1.0, 0.0);
-  config.cameraEndLookAt   = glm::vec3(0.0, 1.0, 0.0);
 }
 }
