@@ -64,16 +64,18 @@ ModelData loadModel(
 
 Model createModel(
   const std::string& modelPath,
-  const std::string& texturePath,
   const glm::vec3    position,
-  const float        scale
+  const float        scale,
+  const std::string& diffuseTexturePath,
+  const std::string& normalTexturePath
 ) {
   auto modelData = loadModel(modelPath);
 
   return Model {
     modelData.indices,
     modelData.vertices,
-    texturePath,
+    diffuseTexturePath,
+    normalTexturePath,
     position,
     scale
   };

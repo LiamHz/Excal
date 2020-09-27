@@ -109,21 +109,30 @@ void Engine::initVulkan()
     );
   }
 
-  descriptorSetLayout = Excal::Descriptor::createDescriptorSetLayout(
-    device, config.models.size()
-  );
-
   commandPool = device.createCommandPool(
     vk::CommandPoolCreateInfo({}, queueFamilyIndices.graphicsFamily.value())
   );
 
   // Create texture resources for each model
   for (auto& model : config.models) {
+    // TODO Texture resources must be created for each model, even if they don't
+    //      have a texture. Remove this requirement
+
+    // Diffuse texture
     textures.push_back(
       Excal::Image::createTextureResources(
         physicalDevice, device,
         allocator,      commandPool,
-        graphicsQueue,  model.texturePath
+        graphicsQueue,  model.diffuseTexturePath
+      )
+    );
+
+    // Normal texture
+    textures.push_back(
+      Excal::Image::createTextureResources(
+        physicalDevice, device,
+        allocator,      commandPool,
+        graphicsQueue,  model.normalTexturePath
       )
     );
   }
@@ -133,6 +142,10 @@ void Engine::initVulkan()
   }
 
   textureSampler = Excal::Image::createTextureImageSampler(device);
+
+  descriptorSetLayout = Excal::Descriptor::createDescriptorSetLayout(
+    device, textures.size()
+  );
 
   // Create vectors containing all model indices and vertices
   std::vector<uint32_t> indices;

@@ -145,17 +145,6 @@ public:
     return EngineConfig{};
   }
 
-  Excal::Model::Model createModel(
-    const std::string& modelPath,
-    const std::string& texturePath,
-    const glm::vec3    position,
-    const float        scale
-  ) {
-    return Excal::Model::createModel(
-      modelPath, texturePath, position, scale
-    );
-  }
-
   void init(const EngineConfig& _config)
   {
     config = _config;

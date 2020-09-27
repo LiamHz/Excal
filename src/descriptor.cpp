@@ -38,10 +38,10 @@ std::vector<vk::DescriptorSet> createDescriptorSets(
 
     vk::DescriptorImageInfo textureImageInfos[textureImageViews.size()];
 
-    for (int i=0; i < textureImageViews.size(); i++) {
-      textureImageInfos[i].sampler     = nullptr;
-      textureImageInfos[i].imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-      textureImageInfos[i].imageView   = textureImageViews[i];
+    for (int j=0; j < textureImageViews.size(); j++) {
+      textureImageInfos[j].sampler     = nullptr;
+      textureImageInfos[j].imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+      textureImageInfos[j].imageView   = textureImageViews[j];
     }
 
     vk::DescriptorImageInfo textureSamplerInfo(textureSampler);
