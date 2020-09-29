@@ -9,6 +9,7 @@
 #include "structs.h"
 #include "model.h"
 #include "camera.h"
+#include "light.h"
 
 namespace Excal::Buffer
 {
@@ -73,7 +74,8 @@ void updateUniformBuffer(
   const vk::Extent2D&         swapchainExtent,
   const uint32_t              currentImage,
   const float                 farClipPlane,
-  const Excal::Camera&        camera
+  const Excal::Camera&        camera,
+  Excal::Light::Point&        light
 );
 
 void updateDynamicUniformBuffer(

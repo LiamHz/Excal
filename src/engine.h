@@ -19,6 +19,7 @@
 #include "model.h"
 #include "structs.h"
 #include "camera.h"
+#include "light.h"
 
 namespace Excal
 {
@@ -27,6 +28,7 @@ class Engine
 public:
   struct EngineConfig {
     Excal::Camera camera;
+    Excal::Light::Point light;
     std::vector<Excal::Model::Model> models;
     std::string vertShaderPath;
     std::string fragShaderPath;

@@ -13,12 +13,14 @@
 #include <vector>
 #include <chrono>
 #include <math.h>
+#include <iostream>
 
 #include "device.h"
 #include "structs.h"
 #include "model.h"
 #include "utils.h"
 #include "camera.h"
+#include "light.h"
 
 namespace Excal::Buffer
 {
@@ -250,7 +252,8 @@ void updateUniformBuffer(
   const vk::Extent2D&         swapchainExtent,
   const uint32_t              currentImage,
   const float                 farClipPlane,
-  const Excal::Camera&        camera
+  const Excal::Camera&        camera,
+  Excal::Light::Point&        light
 ) {
   UniformBufferObject ubo{};
 
@@ -260,6 +263,12 @@ void updateUniformBuffer(
     swapchainExtent.width / (float) swapchainExtent.height,
     0.1f, farClipPlane
   );
+
+  light.patrol();
+
+  ubo.camPos     = camera.pos;
+  ubo.lightPos   = light.getPos();
+  ubo.lightColor = light.color;
 
   // Invert Y axis to acccount for difference between OpenGL and Vulkan
   ubo.proj[1][1] *= -1;

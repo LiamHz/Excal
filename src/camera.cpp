@@ -8,10 +8,13 @@
 
 namespace Excal
 {
-Camera::Camera()
-{
-  pos = glm::vec3(0, 0, 5);
-}
+
+// NOTE If member variables are uninitialized, their default value
+//      is whatever value already happens to be in that memory
+//      location. This leads to undefined behavior, where sometimes
+//      your code will work as expected, and sometimes it will
+//      mysteriously break.
+Camera::Camera() : pos(glm::vec3(0, 0, 5)), yaw(0.0), pitch(0.0) {}
 
 void Camera::updateView()
 {
@@ -39,13 +42,13 @@ void Camera::handleInput(GLFWwindow* window, float deltaTime)
 
   // Change camera's position from WASD input
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-    pos    += dir * camSpeed;
+    pos += dir * camSpeed;
   } else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-    pos    -= dir * camSpeed;
+    pos -= dir * camSpeed;
   } else if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-    pos    -= right * camSpeed;
+    pos -= right * camSpeed;
   } else if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-    pos    += right * camSpeed;
+    pos  += right * camSpeed;
   }
 }
 

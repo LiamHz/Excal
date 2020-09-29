@@ -29,6 +29,7 @@
 #include "descriptor.h"
 #include "utils.h"
 #include "camera.h"
+#include "light.h"
 
 namespace Excal
 {
@@ -356,7 +357,7 @@ void Engine::drawFrame(size_t& currentFrame)
     allocator,    uniformBufferAllocations,
     device,       swapchainExtent,
     imageIndex,   config.farClipPlane,
-    config.camera
+    config.camera, config.light
   );
 
   Excal::Buffer::updateDynamicUniformBuffer(
